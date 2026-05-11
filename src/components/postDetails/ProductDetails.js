@@ -1185,16 +1185,6 @@ SELLER CARD
                 alignItems="center"
               >
 
-                <Avatar
-                  src={post.sellerPhoto}
-                  sx={{
-                    width: 70,
-                    height: 70
-                  }}
-                >
-                  {post.sellerName?.charAt(0)}
-                </Avatar>
-
                 <Box flex={1}>
 
                   <Stack
@@ -1203,14 +1193,7 @@ SELLER CARD
                     alignItems="center"
                   >
 
-                    <Typography
-                      sx={{
-                        fontWeight: "bold",
-                        fontSize: 18
-                      }}
-                    >
-                      {post.sellerName}
-                    </Typography>
+                    
 
                     {post.sellerVerified && (
 
