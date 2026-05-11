@@ -1,0 +1,147 @@
+/* ================= RESET ================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ================= HTML / BODY ================= */
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  max-width: 100vw;
+
+  background-color: #000;
+  color: #fff;
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  text-rendering: optimizeLegibility;
+
+  overflow-x: hidden;
+}
+
+/* ================= ROOT APP ================= */
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ================= IMAGES ================= */
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* ================= LINKS ================= */
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ================= BUTTON RESET ================= */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ================= INPUT FIXES ================= */
+
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* ================= CODE ================= */
+
+code {
+  font-family:
+    source-code-pro,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Courier New",
+    monospace;
+}
+
+/* ================= SCROLLBAR ================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ================= MARKETPLACE CARD PERFORMANCE ================= */
+
+.card {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* ================= IMAGE PLACEHOLDER ================= */
+
+.image-placeholder {
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+}
+
+/* ================= MOBILE OPTIMIZATION ================= */
+
+@media (max-width: 600px) {
+
+  body {
+    font-size: 14px;
+  }
+
+}
+
+/* ================= SMOOTH TRANSITIONS ================= */
+
+* {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
