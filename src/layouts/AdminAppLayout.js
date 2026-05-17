@@ -83,9 +83,9 @@ export default function AdminAppLayout({ children }) {
   },
 
   {
-    text: "Members",
-    icon: <Groups />,
-    path: "/admin/members"
+    text: "Support",
+    icon: <AdminPanelSettings />,
+    path: "/admin/support"
   },
 
   // ================= SALES =================

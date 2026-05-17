@@ -25,6 +25,7 @@
     "leaflet-defaulticon-compatibility": "^0.1.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-helmet-async": "^3.0.0",
     "react-image-gallery": "^2.1.2",
     "react-instantsearch": "^7.26.1",
     "react-leaflet": "^5.0.0",

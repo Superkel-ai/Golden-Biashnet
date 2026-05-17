@@ -63,7 +63,9 @@ import {
   limit,
   getDocs
 } from "firebase/firestore";
-
+import { calculateSellerTrust }
+from "../../utils/sellerTrust";
+import { Helmet } from "react-helmet-async";
 import { auth, db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
 
@@ -78,6 +80,11 @@ const BORDER = "#232323";
 const TEXT = "#ffffff";
 const SUB = "#aaaaaa";
 
+const ADMINS=[
+ "254758922614",
+ "25410691650",
+ "254751852962"
+];
 /* =========================================================
 HELPERS
 ========================================================= */
@@ -139,7 +146,7 @@ export default function ProductDetails({ post }) {
   }, [post]);
 
   const [selectedIndex, setSelectedIndex] = useState(0);
-
+  const [sellerData, setSellerData] = useState(null);
   const [addingCart, setAddingCart] = useState(false);
 
   const [favorite, setFavorite] = useState(false);
@@ -309,7 +316,7 @@ const handleBuyNow = async () => {
         title: "🛒 New Order Received",
 
         message:
-          `${buyer.displayName || "A buyer"} wants to buy "${post.title}"`,
+          `${"A buyer"} wants to buy "${post.title}"`,
 
         orderId: orderRef.id,
 
@@ -320,53 +327,6 @@ const handleBuyNow = async () => {
         read: false,
 
         createdAt: serverTimestamp()
-
-      }
-    );
-
-    /* =====================================================
-       NOTIFY ADMINS
-    ===================================================== */
-
-    await addDoc(
-      collection(db, "adminNotifications"),
-      {
-
-        type: "new_market_order",
-
-        title: "🔥 New Marketplace Order",
-
-        message:
-          `New order received for "${post.title}"`,
-
-        orderId: orderRef.id,
-
-        sellerId: post.sellerId,
-
-        buyerId: buyer.uid,
-
-        productId: post.id,
-
-        image: productImage,
-
-        read: false,
-
-        createdAt: serverTimestamp()
-
-      }
-    );
-
-    /* =====================================================
-       UPDATE PRODUCT ANALYTICS
-    ===================================================== */
-
-    await updateDoc(
-      doc(db, "products", post.id),
-      {
-
-        orderCount: increment(1),
-
-        pendingOrders: increment(1)
 
       }
     );
@@ -420,6 +380,52 @@ DISCOUNT
 
   const stockStatus =
     post.stock > 0 ? "In Stock" : "Out of Stock";
+
+/*=========================================================
+fetch seller
+========================================================= */
+    useEffect(() => {
+
+  const fetchSeller = async () => {
+
+    try {
+
+      if (!post?.sellerId) return;
+
+      const sellerRef = doc(
+        db,
+        "users",
+        post.sellerId
+      );
+
+      const sellerSnap =
+        await getDoc(sellerRef);
+
+      if (sellerSnap.exists()) {
+
+        setSellerData({
+          id: sellerSnap.id,
+          ...sellerSnap.data()
+        });
+
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+    }
+
+  };
+
+  fetchSeller();
+
+}, [post]);
+
+const trust =
+  sellerData
+    ? calculateSellerTrust(sellerData)
+    : null;
 
   /* =========================================================
 RELATED PRODUCTS
@@ -495,134 +501,241 @@ IMAGE SLIDER
     );
 
   };
+//=========================================================
+  const trackMarketplaceAction = async(type)=>{
 
-  /* =========================================================
-TRACK CONTACT
-========================================================= */
+ try{
 
-  const trackContact = async (type) => {
+  await addDoc(
+   collection(db,"marketplaceEvents"),
+   {
+    type,
 
-    try {
+    productId:post.id,
 
-      await addDoc(collection(db, "contactEvents"), {
+    sellerId:post.sellerId,
 
-        productId: post.id,
-        sellerId: post.sellerId,
-        buyerId: auth.currentUser?.uid || null,
-        type,
-        createdAt: serverTimestamp()
+    buyerId:
+      auth.currentUser?.uid || null,
 
-      });
+    createdAt:serverTimestamp()
+   }
+  );
 
-    } catch (err) {
+ }catch(err){
 
-      console.error(err);
+  console.log(err);
 
-    }
+ }
 
-  };
+};
 
-  /* =========================================================
-CHAT
-========================================================= */
+//=========================================================
 
-  const startChat = async (otherUserId) => {
 
-    const user = auth.currentUser;
+  const startAdminChat = async()=>{
 
-    if (!user) {
-      alert("Login required");
-      return;
-    }
+ try{
 
-    try {
+  if(!auth.currentUser){
+   alert("Login required");
+   return;
+  }
 
-      const chatId = [user.uid, otherUserId]
-        .sort()
-        .join("_");
+  const buyer = auth.currentUser;
 
-      const chatRef = doc(db, "chats", chatId);
+  const ref = await addDoc(
+   collection(db,"adminChats"),
+   {
+    buyerId:buyer.uid,
 
-      const chatSnap = await getDoc(chatRef);
+    productId:post.id,
 
-      if (!chatSnap.exists()) {
+    sellerId:post.sellerId,
 
-        await setDoc(chatRef, {
+    productTitle:post.title,
 
-          participants: [user.uid, otherUserId],
-          createdAt: serverTimestamp(),
-          lastMessage: "",
-          lastMessageAt: serverTimestamp()
+    productImage:
+     post.images?.[0]?.thumb || "",
 
-        });
+    status:"active",
 
-        await updateDoc(doc(db, "users", otherUserId), {
-          chatRequests: increment(1)
-        });
+    createdAt:serverTimestamp()
+   }
+  );
 
-      }
+  /* ======================================
+     NOTIFY ADMINS
+  ====================================== */
 
-      navigate(`/chat/${chatId}`);
+  await addDoc(
+   collection(db,"adminNotifications"),
+   {
+    type:"admin_chat",
 
-    } catch (err) {
+    buyerId:buyer.uid,
 
-      console.error(err);
-      alert("Failed to start chat");
+    sellerId:post.sellerId,
 
-    }
+    productId:post.id,
 
-  };
+    chatId:ref.id,
 
-  /* =========================================================
-ADD TO CART
-========================================================= */
+    title:"New Buyer Support Chat",
 
-  const handleAddToCart = async () => {
+    message:
+     `${buyer.displayName || "Buyer"} needs help with ${post.title}`,
 
-    try {
+    read:false,
 
-      if (!auth.currentUser) {
-        alert("Login required");
-        return;
-      }
+    createdAt:serverTimestamp()
+   }
+  );
 
-      setAddingCart(true);
+  navigate(`/support-chat/${ref.id}`);
 
-      await addDoc(collection(db, "cart"), {
+ }catch(err){
 
-        userId: auth.currentUser.uid,
-        postId: post.id,
-        type: "product",
+  console.log(err);
 
-        title: post.title,
-        price: post.price,
-        category: post.category || "general",
+  alert("Failed to start admin chat");
 
-        image:
-          images?.[0]?.thumb ||
-          images?.[0]?.full,
+ }
 
-        sellerId: post.sellerId || null,
+};
+  
+const handleAddToCart = async()=>{
 
-        createdAt: serverTimestamp()
+ try{
 
-      });
+  if(!auth.currentUser){
+   alert("Login required");
+   return;
+  }
 
-      alert("Added to cart");
+  setAddingCart(true);
 
-    } catch (err) {
+  const buyer = auth.currentUser;
 
-      console.error(err);
-      alert("Failed to add to cart");
+  /* =====================================
+     ADD CART
+  ===================================== */
 
-    } finally {
+  await addDoc(
+   collection(db,"cart"),
+   {
+    userId:buyer.uid,
 
-      setAddingCart(false);
+    postId:post.id,
 
-    }
+    sellerId:post.sellerId,
 
-  };
+    title:post.title,
 
+    image:
+     images?.[0]?.thumb ||
+     images?.[0]?.full,
+
+    price:Number(post.price || 0),
+
+    createdAt:serverTimestamp()
+   }
+  );
+
+  /* =====================================
+     ADMIN REQUEST
+  ===================================== */
+
+  await addDoc(
+   collection(db,"marketplaceRequests"),
+   {
+    type:"cart_interest",
+
+    buyerId:buyer.uid,
+
+    sellerId:post.sellerId,
+
+    productId:post.id,
+
+    title:post.title,
+
+    amount:Number(post.price || 0),
+
+    status:"pending",
+
+    visibility:"admin_controlled",
+
+    createdAt:serverTimestamp()
+   }
+  );
+
+  /* =====================================
+     NOTIFY ADMINS
+  ===================================== */
+
+  await addDoc(
+   collection(db,"adminNotifications"),
+   {
+    type:"cart_added",
+
+    buyerId:buyer.uid,
+
+    sellerId:post.sellerId,
+
+    productId:post.id,
+
+    title:"Product Added To Cart",
+
+    message:
+      `${post.title} was added to cart`,
+
+    read:false,
+
+    createdAt:serverTimestamp()
+   }
+  );
+
+  /* =====================================
+     LIMITED SELLER NOTIFICATION
+  ===================================== */
+
+  await addDoc(
+   collection(db,"notifications"),
+   {
+    userId:post.sellerId,
+
+    type:"buyer_interest",
+
+    title:"Buyer Interested",
+
+    message:
+     `Someone is interested in "${post.title}"`,
+
+    productId:post.id,
+
+    read:false,
+
+    createdAt:serverTimestamp()
+   }
+  );
+
+  alert(
+   "Added successfully. Admins notified."
+  );
+
+ }catch(err){
+
+  console.log(err);
+
+  alert("Failed to add to cart");
+
+ }finally{
+
+  setAddingCart(false);
+
+ }
+
+};
 /* =========================================================
 SMART PRODUCT SHARE
 TikTok / WhatsApp / IG Style
@@ -827,16 +940,129 @@ https://golden-biashnet.web.app
   }
 
 };
+
+/* =========================================================
+ FORMAT PHONE
+========================================================= */
+
+const formatPhone=(phone="")=>{
+
+ let cleaned=phone
+  .replace(/\s/g,"")
+  .replace(/\+/g,"");
+
+ // 07XXXXXXXX
+ if(cleaned.startsWith("07")){
+
+  cleaned=`254${cleaned.slice(1)}`;
+
+ }
+
+ // 01XXXXXXXX
+ if(cleaned.startsWith("01")){
+
+  cleaned=`254${cleaned.slice(1)}`;
+
+ }
+
+ return cleaned;
+
+};
+
   /* =========================================================
 WHATSAPP
 ========================================================= */
+const contactAdminsWhatsApp=()=>{
 
-  const whatsappLink = sellerPhone
-    ? `https://wa.me/${sellerPhone}?text=${encodeURIComponent(
-        `Hello ${post.sellerName}, I am interested in "${post.title}" on Golden Biashnet`
-      )}`
-    : null;
+ try{
 
+  /* =========================================
+     SAFETY CHECK
+  ========================================= */
+
+  if(!post?.id){
+
+   alert("Product not available");
+   return;
+
+  }
+
+  /* =========================================
+     BUILD MESSAGE
+  ========================================= */
+
+  const message=
+`Hello Golden Biashnet Admin,
+
+I am interested in this product.
+
+Product:
+${post.title || "Marketplace Product"}
+
+Price:
+KES ${post.price || 0}
+
+Product ID:
+${post.id}
+
+Seller ID:
+${post.sellerId || "N/A"}
+
+Location:
+${post.location || "N/A"}
+
+Please assist me with the purchase process.`;
+
+  const encodedText=
+   encodeURIComponent(message);
+
+  /* =========================================
+     OPEN FIRST ADMIN FAST
+  ========================================= */
+
+  const firstAdmin=
+   formatPhone(ADMINS[0]);
+
+  window.open(
+   `https://wa.me/${firstAdmin}?text=${encodedText}`,
+   "_blank"
+  );
+
+  /* =========================================
+     OPTIONAL BACKUP ADMINS
+     (silent fail-safe)
+  ========================================= */
+
+  ADMINS.slice(1).forEach((phone,index)=>{
+
+   const formatted=
+    formatPhone(phone);
+
+   setTimeout(()=>{
+
+    fetch(
+    `https://wa.me/${formatted}`
+    ).catch(()=>{});
+
+   },index*300);
+
+  });
+
+ }catch(err){
+
+  console.log(err);
+
+  alert(
+   "Failed to open WhatsApp"
+  );
+
+ }
+
+ trackMarketplaceAction(
+  "whatsapp_admin"
+ );
+
+};
   /* =========================================================
 SMS
 ========================================================= */
@@ -883,8 +1109,149 @@ REPORT
 UI
 ========================================================= */
 
-  return (
+  return ( <>
+<Helmet>
 
+  {/* Main Title */}
+  <title>
+    {post?.title} | Golden Biashnet
+  </title>
+
+  {/* Basic SEO */}
+  <meta
+    name="description"
+    content={post?.description}
+  />
+
+  <meta
+    name="keywords"
+    content={`
+      ${post?.title},
+      Golden Biashnet,
+      Kenya marketplace,
+      buy online Kenya,
+      products,
+      services,
+      houses,
+      adverts
+    `}
+  />
+
+  <meta
+    name="author"
+    content="Golden Biashnet"
+  />
+
+  {/* Canonical URL */}
+  <link
+    rel="canonical"
+    href={window.location.href}
+  />
+
+  {/* Open Graph / Facebook / WhatsApp */}
+  <meta
+    property="og:type"
+    content="product"
+  />
+
+  <meta
+    property="og:site_name"
+    content="Golden Biashnet"
+  />
+
+  <meta
+    property="og:title"
+    content={post?.title}
+  />
+
+  <meta
+    property="og:description"
+    content={post?.description}
+  />
+
+  <meta
+    property="og:image"
+    content={post?.image}
+  />
+
+  <meta
+    property="og:url"
+    content={window.location.href}
+  />
+
+  {/* Product Pricing */}
+  <meta
+    property="product:price:amount"
+    content={post?.price}
+  />
+
+  <meta
+    property="product:price:currency"
+    content="KES"
+  />
+
+  {/* Optional Discount */}
+  <meta
+    property="product:sale_price:amount"
+    content={post?.discountPrice || post?.price}
+  />
+
+  {/* Twitter / X Preview */}
+  <meta
+    name="twitter:card"
+    content="summary_large_image"
+  />
+
+  <meta
+    name="twitter:title"
+    content={post?.title}
+  />
+
+  <meta
+    name="twitter:description"
+    content={post?.description}
+  />
+
+  <meta
+    name="twitter:image"
+    content={post?.image}
+  />
+
+  {/* Structured Product Data */}
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+
+      name: post?.title,
+
+      image: [
+        post?.image
+      ],
+
+      description: post?.description,
+
+      brand: {
+        "@type": "Brand",
+        name: "Golden Biashnet"
+      },
+
+      offers: {
+        "@type": "Offer",
+
+        url: window.location.href,
+
+        priceCurrency: "KES",
+
+        price: post?.price,
+
+        availability:
+          "https://schema.org/InStock"
+      }
+    })}
+  </script>
+
+</Helmet>
     <Box
       sx={{
         background: BG,
@@ -1155,199 +1522,458 @@ RIGHT SIDE
               )}
 
             </Stack>
-
-            {/* =========================================================
-SELLER CARD
+              {/* =========================================================
+SELLER TRUST CARD
 ========================================================= */}
+ <Paper
+  sx={{
+    mt: 4,
+    borderRadius: 5,
+    overflow: "hidden",
+    position: "relative",
 
-            <Paper
+    background:
+      "linear-gradient(180deg,#111,#080808)",
+
+    border:
+      `1px solid ${trust?.badge?.border || BORDER}`,
+
+    boxShadow:
+      trust?.badge?.level === "golden"
+        ? "0 0 25px rgba(244,180,0,0.15)"
+        : "none"
+  }}
+>
+
+  {/* ========================================
+     TOP GLOW
+  ======================================== */}
+
+  <Box
+    sx={{
+      position: "absolute",
+      top: -70,
+      right: -70,
+      width: 180,
+      height: 180,
+      borderRadius: "50%",
+
+      background:
+        trust?.badge?.bg,
+
+      filter: "blur(45px)"
+    }}
+  />
+
+  {/* ========================================
+     CONTENT
+  ======================================== */}
+
+  <Box sx={{ p: 2.5 }}>
+
+    {/* ========================================
+       HEADER
+    ======================================== */}
+
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      mb={2}
+    >
+
+      <Typography
+        sx={{
+          fontWeight: 900,
+          fontSize: 16
+        }}
+      >
+        Seller Trust Profile
+      </Typography>
+
+      <Shield
+        sx={{
+          color:
+            trust?.badge?.color || GOLD
+        }}
+      />
+
+    </Stack>
+
+    {/* ========================================
+       TOP SECTION
+    ======================================== */}
+
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+    >
+
+      {/* ========================================
+         AVATAR
+      ======================================== */}
+
+      <Avatar
+        sx={{
+          width: 70,
+          height: 70,
+
+          background:
+            trust?.badge?.bg,
+
+          color:
+            trust?.badge?.color,
+
+          border:
+            `2px solid ${trust?.badge?.border}`,
+
+          fontWeight: 900
+        }}
+      >
+        <Storefront sx={{ fontSize: 32 }} />
+      </Avatar>
+
+      {/* ========================================
+         INFO
+      ======================================== */}
+
+      <Box flex={1}>
+
+        {/* ========================================
+           BADGE
+        ======================================== */}
+
+        <Chip
+          icon={
+            <Verified
               sx={{
-                background: CARD,
-                border: `1px solid ${BORDER}`,
-                borderRadius: 4,
-                p: 2.5,
-                mt: 4
+                color:
+                  `${trust?.badge?.color} !important`
+              }}
+            />
+          }
+
+          label={
+            trust?.badge?.label
+          }
+
+          sx={{
+            background:
+              trust?.badge?.bg,
+
+            color:
+              trust?.badge?.color,
+
+            border:
+              `1px solid ${trust?.badge?.border}`,
+
+            fontWeight: 800,
+
+            borderRadius: 3
+          }}
+        />
+
+        {/* ========================================
+           STATUS
+        ======================================== */}
+
+        <Typography
+          sx={{
+            mt: 1,
+            color: "#ddd",
+            fontSize: 13,
+            fontWeight: 600
+          }}
+        >
+          {trust?.status}
+        </Typography>
+
+        {/* ========================================
+           RATING
+        ======================================== */}
+
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          mt={1}
+        >
+
+          <Rating
+            value={
+              trust?.sellerRating || 1
+            }
+
+            precision={0.5}
+
+            readOnly
+
+            sx={{
+              "& .MuiRating-iconFilled": {
+                color: GOLD
+              }
+            }}
+          />
+
+          <Typography
+            sx={{
+              color: GOLD,
+              fontWeight: 900
+            }}
+          >
+            {trust?.sellerRating?.toFixed(1)}
+          </Typography>
+
+          <Typography
+            sx={{
+              color: "#777",
+              fontSize: 13
+            }}
+          >
+            ({sellerData?.totalRatings || 0})
+          </Typography>
+
+        </Stack>
+
+      </Box>
+
+    </Stack>
+
+    {/* ========================================
+       TRUST METRICS
+    ======================================== */}
+
+    <Grid
+      container
+      spacing={1.2}
+      mt={2}
+    >
+
+      {[
+        {
+          label: "Trust Score",
+          value:
+            `${trust?.trustScore || 0}%`
+        },
+
+        {
+          label: "Sales",
+          value:
+            `${sellerData?.completedOrders || 0}+`
+        },
+
+        {
+          label: "Success Rate",
+          value:
+            `${sellerData?.successRate || 98}%`
+        },
+
+        {
+          label: "Response",
+          value:
+            sellerData?.responseTime ||
+            "Fast"
+        }
+
+      ].map((item, i) => (
+
+        <Grid item xs={6} key={i}>
+
+          <Box
+            sx={{
+              background:
+                "rgba(255,255,255,0.03)",
+
+              border:
+                `1px solid ${BORDER}`,
+
+              borderRadius: 3,
+
+              p: 1.3,
+
+              textAlign: "center"
+            }}
+          >
+
+            <Typography
+              sx={{
+                color: GOLD,
+                fontWeight: 900,
+                fontSize: 15
               }}
             >
+              {item.value}
+            </Typography>
 
-              <Typography
-                sx={{
-                  mb: 2,
-                  fontWeight: "bold"
-                }}
-              >
-                Seller Information
-              </Typography>
+            <Typography
+              sx={{
+                color: "#888",
+                fontSize: 11
+              }}
+            >
+              {item.label}
+            </Typography>
 
-              <Stack
-                direction="row"
-                spacing={2}
-                alignItems="center"
-              >
+          </Box>
 
-                <Box flex={1}>
+        </Grid>
 
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                  >
+      ))}
 
-                    
+    </Grid>
 
-                    {post.sellerVerified && (
 
-                      <Verified
-                        sx={{
-                          color: GOLD,
-                          fontSize: 20
-                        }}
-                      />
+  </Box>
 
-                    )}
+</Paper>
 
-                  </Stack>
-
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    mt={0.5}
-                  >
-
-                    <LocationOn
-                      sx={{
-                        color: "#777",
-                        fontSize: 18
-                      }}
-                    />
-
-                    <Typography
-                      sx={{
-                        color: "#999"
-                      }}
-                    >
-                      {post.sellerLocation || "Kenya"}
-                    </Typography>
-
-                  </Stack>
-
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    mt={1}
-                  >
-
-                    <Rating
-                      value={post.sellerRating || 0}
-                      precision={0.5}
-                      readOnly
-                      size="small"
-                    />
-
-                    <Typography
-                      sx={{
-                        color: "#888"
-                      }}
-                    >
-                      ({post.sellerTotalRatings || 0})
-                    </Typography>
-
-                  </Stack>
-
-                </Box>
-
-              </Stack>
-
-            </Paper>
-
-            {/* =========================================================
-ACTIONS
+{/* =========================================================
+MARKETPLACE PROTECTED ACTIONS
+Golden Biashnet Middleman System
 ========================================================= */}
 
-            <Stack spacing={2} mt={4}>
+<Stack spacing={2.2} mt={4}>
 
-              <Button
-                fullWidth
-                startIcon={<Chat />}
-                onClick={() => startChat(post.sellerId)}
-                sx={primaryBtn}
-              >
-                Chat In-App
-              </Button>
+  {/* =====================================================
+      MARKETPLACE NOTICE
+  ===================================================== */}
 
-              <Grid container spacing={2}>
+  <Paper
+    sx={{
+      background:"rgba(244,180,0,0.06)",
+      border:"1px solid rgba(244,180,0,0.15)",
+      borderRadius:4,
+      p:2
+    }}
+  >
 
-                <Grid item xs={12} sm={4}>
+    <Stack
+      direction="row"
+      spacing={1.2}
+      alignItems="center"
+    >
 
-                  <Button
-                    fullWidth
-                    href={whatsappLink}
-                    target="_blank"
-                    startIcon={<WhatsApp />}
-                    onClick={() =>
-                      trackContact("whatsapp")
-                    }
-                    sx={{
-                      ...secondaryBtn,
-                      background: "#25D366",
-                      color: "#000",
-                      border: "none"
-                    }}
-                  >
-                    WhatsApp
-                  </Button>
+      <Shield sx={{color:GOLD}} />
 
-                </Grid>
+      <Typography
+        sx={{
+          color:"#ddd",
+          fontSize:13,
+          lineHeight:1.7
+        }}
+      >
+        Golden Biashnet protects all
+        marketplace transactions.
+        Buyers communicate directly
+        with admins for safer payments,
+        delivery coordination and seller
+        verification.
+      </Typography>
 
-                <Grid item xs={6} sm={4}>
+    </Stack>
 
-                  <Button
-                    fullWidth
-                    href={`tel:${sellerPhone}`}
-                    startIcon={<Phone />}
-                    onClick={() =>
-                      trackContact("call")
-                    }
-                    sx={secondaryBtn}
-                  >
-                    Call
-                  </Button>
+  </Paper>
 
-                </Grid>
+  {/* =====================================================
+      CHAT ADMINS
+  ===================================================== */}
 
-                <Grid item xs={6} sm={4}>
+  <Button
+    fullWidth
+    startIcon={<Chat />}
+    onClick={startAdminChat}
+    sx={primaryBtn}
+  >
+    Chat Marketplace Admins
+  </Button>
 
-                  <Button
-                    fullWidth
-                    href={smsLink}
-                    startIcon={<Sms />}
-                    onClick={() =>
-                      trackContact("sms")
-                    }
-                    sx={secondaryBtn}
-                  >
-                    SMS
-                  </Button>
+  {/* =====================================================
+      CONTACT ADMINS
+  ===================================================== */}
 
-                </Grid>
+  <Grid container spacing={2}>
 
-              </Grid>
+    {/* WHATSAPP ADMINS */}
 
-              <Button
-                fullWidth
-                startIcon={<ShoppingCart />}
-                onClick={handleAddToCart}
-                disabled={addingCart}
-                sx={cartBtn}
-              >
-                {addingCart
-                  ? "Adding..."
-                  : "Add To Cart"}
-              </Button>
+    <Grid item xs={12} sm={4}>
 
-            </Stack>
+      <Button
+        fullWidth
+        startIcon={<WhatsApp />}
+        onClick={contactAdminsWhatsApp}
+        sx={{
+          ...secondaryBtn,
+          background:"#25D366",
+          color:"#000",
+          border:"none"
+        }}
+      >
+        WhatsApp Admins
+      </Button>
+
+    </Grid>
+
+    {/* CALL ADMIN */}
+
+    <Grid item xs={6} sm={4}>
+
+      <Button
+        fullWidth
+        href="tel:+254758922614"
+        startIcon={<Phone />}
+        onClick={()=>trackMarketplaceAction("call_admin")}
+        sx={secondaryBtn}
+      >
+        Call Admin
+      </Button>
+
+    </Grid>
+
+    {/* SMS ADMIN */}
+
+    <Grid item xs={6} sm={4}>
+
+      <Button
+        fullWidth
+        href={`sms:+254758922614?body=${encodeURIComponent(
+          `Hello Golden Biashnet Admin,
+I am interested in:
+${post.title}
+Product ID: ${post.id}`
+        )}`}
+        startIcon={<Sms />}
+        onClick={()=>trackMarketplaceAction("sms_admin")}
+        sx={secondaryBtn}
+      >
+        SMS Admin
+      </Button>
+
+    </Grid>
+
+  </Grid>
+
+  {/* =====================================================
+      ADD TO CART
+  ===================================================== */}
+
+  <Button
+    fullWidth
+    startIcon={<ShoppingCart />}
+    onClick={handleAddToCart}
+    disabled={addingCart}
+    sx={cartBtn}
+  >
+
+    {addingCart
+      ? "Processing..."
+      : "Add To Cart"}
+
+  </Button>
+
+</Stack>
+
+
 
             {/* =========================================================
 LOWER TABS
@@ -1751,7 +2377,7 @@ REPORT DIALOG
       </Dialog>
 
     </Box>
-
+      </>
   );
 
 }

@@ -8,35 +8,40 @@ import {
  TextField,
  IconButton,
  Paper,
- Chip
+ Chip,
+ Button,
+ Divider
 } from "@mui/material";
 
 import {
  Send,
- SupportAgent,
- DoneAll
+ Person,
+ DoneAll,
+ Shield,
+ Storefront,
+ LocationOn,
+ Phone,
+ Chat
 } from "@mui/icons-material";
 
-import {
- useParams
-} from "react-router-dom";
-
-import {
- collection,
- query,
- orderBy,
- onSnapshot,
- addDoc,
- serverTimestamp,
- doc,
- updateDoc,
- getDoc
-} from "firebase/firestore";
+import {useNavigate,useParams} from "react-router-dom";
 
 import {
  db,
  auth
 } from "../services/firebase";
+
+import {
+ doc,
+ getDoc,
+ updateDoc,
+ collection,
+ query,
+ orderBy,
+ onSnapshot,
+ addDoc,
+ serverTimestamp
+} from "firebase/firestore";
 
 /* =========================================================
 THEME
@@ -51,61 +56,96 @@ const BORDER="#232323";
 COMPONENT
 ========================================================= */
 
-export default function ChatRoom(){
+export default function AdminChat(){
 
  const {chatId}=useParams();
 
+ const navigate=useNavigate();
+
  const [chat,setChat]=useState(null);
+
+ const [seller,setSeller]=useState(null);
+
+ const [buyer,setBuyer]=useState(null);
 
  const [messages,setMessages]=useState([]);
 
  const [message,setMessage]=useState("");
 
- const [typing,setTyping]=useState(false);
+ const [buyerTyping,setBuyerTyping]=useState(false);
 
- const [adminTyping,setAdminTyping]=useState(false);
+ const [sending,setSending]=useState(false);
 
- const [adminOnline,setAdminOnline]=useState(true);
-
- const messagesEndRef=useRef(null);
+ const bottomRef=useRef(null);
 
  /* =========================================================
- LOAD CHAT INFO
+ LOAD CHAT
  ========================================================= */
 
  useEffect(()=>{
 
-  const loadChat=async()=>{
+  const unsub=onSnapshot(
+   doc(db,"adminChats",chatId),
+   async snap=>{
 
-   try{
+    if(!snap.exists()) return;
 
-    const snap=await getDoc(
-     doc(db,"adminChats",chatId)
+    const data={
+     id:snap.id,
+     ...snap.data()
+    };
+
+    setChat(data);
+
+    setBuyerTyping(
+     data?.buyerTyping || false
     );
 
-    if(snap.exists()){
+    /* ==============================
+       LOAD BUYER
+    ============================== */
 
-     setChat({
-      id:snap.id,
-      ...snap.data()
-     });
+    if(data.buyerId){
+
+     const buyerSnap=await getDoc(
+      doc(db,"users",data.buyerId)
+     );
+
+     if(buyerSnap.exists()){
+
+      setBuyer(buyerSnap.data());
+
+     }
 
     }
 
-   }catch(err){
+    /* ==============================
+       LOAD SELLER
+    ============================== */
 
-    console.log(err);
+    if(data.sellerId){
+
+     const sellerSnap=await getDoc(
+      doc(db,"users",data.sellerId)
+     );
+
+     if(sellerSnap.exists()){
+
+      setSeller(sellerSnap.data());
+
+     }
+
+    }
 
    }
+  );
 
-  };
-
-  loadChat();
+  return()=>unsub();
 
  },[chatId]);
 
  /* =========================================================
- LOAD MESSAGES REALTIME
+ LOAD MESSAGES
  ========================================================= */
 
  useEffect(()=>{
@@ -120,7 +160,7 @@ export default function ChatRoom(){
    orderBy("createdAt","asc")
   );
 
-  const unsub=onSnapshot(q,(snap)=>{
+  const unsub=onSnapshot(q,snap=>{
 
    setMessages(
     snap.docs.map(doc=>({
@@ -141,26 +181,26 @@ export default function ChatRoom(){
 
  useEffect(()=>{
 
-  messagesEndRef.current?.scrollIntoView({
+  bottomRef.current?.scrollIntoView({
    behavior:"smooth"
   });
 
  },[messages]);
 
  /* =========================================================
- TYPING STATUS
+ ADMIN ONLINE
  ========================================================= */
 
  useEffect(()=>{
 
-  const updateTyping=async()=>{
+  const setOnline=async()=>{
 
    try{
 
     await updateDoc(
      doc(db,"adminChats",chatId),
      {
-      buyerTyping:typing
+      adminOnline:true
      }
     );
 
@@ -172,38 +212,7 @@ export default function ChatRoom(){
 
   };
 
-  updateTyping();
-
- },[typing,chatId]);
-
- /* =========================================================
- LISTEN ADMIN STATUS
- ========================================================= */
-
- useEffect(()=>{
-
-  const unsub=onSnapshot(
-   doc(db,"adminChats",chatId),
-   (snap)=>{
-
-    if(snap.exists()){
-
-     const data=snap.data();
-
-     setAdminTyping(
-      data.adminTyping || false
-     );
-
-     setAdminOnline(
-      data.adminOnline !== false
-     );
-
-    }
-
-   }
-  );
-
-  return()=>unsub();
+  setOnline();
 
  },[chatId]);
 
@@ -217,6 +226,8 @@ export default function ChatRoom(){
 
   try{
 
+   setSending(true);
+
    await addDoc(
     collection(
      db,
@@ -226,13 +237,9 @@ export default function ChatRoom(){
     ),
     {
      text:message,
-
      senderId:auth.currentUser.uid,
-
-     senderRole:"buyer",
-
-     seen:false,
-
+     senderRole:"admin",
+     seen:true,
      createdAt:serverTimestamp()
     }
    );
@@ -241,15 +248,48 @@ export default function ChatRoom(){
     doc(db,"adminChats",chatId),
     {
      lastMessage:message,
-
      lastMessageAt:serverTimestamp(),
-
-     buyerTyping:false
+     adminTyping:false
     }
    );
 
    setMessage("");
-   setTyping(false);
+
+  }catch(err){
+
+   console.log(err);
+
+  }finally{
+
+   setSending(false);
+
+  }
+
+ };
+
+ /* =========================================================
+ ADMIN TYPING
+ ========================================================= */
+
+ const handleTyping=async(e)=>{
+
+  setMessage(e.target.value);
+
+  try{
+
+   await updateDoc(
+    doc(db,"adminChats",chatId),
+    {adminTyping:true}
+   );
+
+   setTimeout(async()=>{
+
+    await updateDoc(
+     doc(db,"adminChats",chatId),
+     {adminTyping:false}
+    );
+
+   },1200);
 
   }catch(err){
 
@@ -260,18 +300,43 @@ export default function ChatRoom(){
  };
 
  /* =========================================================
- HANDLE INPUT
+ CHAT SELLER
  ========================================================= */
 
- const handleInput=(e)=>{
+ const openSellerChat=async()=>{
 
-  setMessage(e.target.value);
+  try{
 
-  setTyping(true);
+   const ref=await addDoc(
+    collection(db,"adminSellerChats"),
+    {
+     adminId:auth.currentUser.uid,
 
-  setTimeout(()=>{
-   setTyping(false);
-  },1500);
+     sellerId:chat.sellerId,
+
+     buyerId:chat.buyerId,
+
+     productId:chat.productId,
+
+     productTitle:chat.productTitle,
+
+     productImage:chat.productImage || "",
+
+     status:"active",
+
+     createdAt:serverTimestamp()
+    }
+   );
+
+   navigate(
+    `/admin/seller-chat/${ref.id}`
+   );
+
+  }catch(err){
+
+   console.log(err);
+
+  }
 
  };
 
@@ -306,12 +371,15 @@ export default function ChatRoom(){
  >
 
  <Avatar
+  src={buyer?.photo}
   sx={{
-   background:GOLD,
-   color:"#000"
+   width:55,
+   height:55,
+   background:"rgba(244,180,0,.12)",
+   color:GOLD
   }}
  >
-  <SupportAgent />
+  <Person />
  </Avatar>
 
  <Box flex={1}>
@@ -319,51 +387,33 @@ export default function ChatRoom(){
  <Typography
   sx={{
    fontWeight:900,
-   fontSize:16
+   fontSize:18
   }}
  >
-  Golden Biashnet Support
+  {buyer?.fullName || "Buyer"}
  </Typography>
-
- <Stack
-  direction="row"
-  spacing={1}
-  alignItems="center"
- >
-
- <Box
-  sx={{
-   width:8,
-   height:8,
-   borderRadius:"50%",
-   background:
-    adminOnline
-     ? "#00e676"
-     : "#777"
-  }}
- />
 
  <Typography
   sx={{
-   color:"#aaa",
-   fontSize:12
+   color:"#888",
+   fontSize:13
   }}
  >
-  {adminTyping
-   ? "Typing..."
-   : adminOnline
-   ? "Admin Online"
-   : "Offline"}
+  Buyer Support Chat
  </Typography>
-
- </Stack>
 
  </Box>
 
  <Chip
-  label="Protected Chat"
+  icon={<Shield />}
+  label={
+   chat?.adminOnline
+    ? "Online"
+    : "Offline"
+  }
+
   sx={{
-   background:"rgba(244,180,0,0.1)",
+   background:"rgba(244,180,0,.12)",
    color:GOLD,
    border:`1px solid ${GOLD}`
   }}
@@ -374,7 +424,7 @@ export default function ChatRoom(){
  </Box>
 
  {/* =====================================================
- PRODUCT INFO
+ PRODUCT / SELLER INFO
  ===================================================== */}
 
  {chat && (
@@ -382,47 +432,190 @@ export default function ChatRoom(){
  <Paper
   sx={{
    m:2,
+   p:2,
    background:CARD,
    border:`1px solid ${BORDER}`,
-   borderRadius:4,
-   overflow:"hidden"
+   borderRadius:5
   }}
  >
 
- <Stack direction="row">
+ <Stack spacing={2}>
+
+ <Stack
+  direction={{
+   xs:"column",
+   md:"row"
+  }}
+  spacing={2}
+ >
 
  <Box
   component="img"
   src={chat.productImage}
   sx={{
-   width:90,
-   height:90,
-   objectFit:"cover"
+   width:{
+    xs:"100%",
+    md:120
+   },
+   height:120,
+   objectFit:"cover",
+   borderRadius:4
   }}
  />
 
- <Box p={2}>
+ <Box flex={1}>
+
+ <Typography
+  sx={{
+   fontWeight:900,
+   fontSize:18
+  }}
+ >
+  {chat.productTitle}
+ </Typography>
+
+ <Stack
+  direction="row"
+  spacing={1}
+  mt={1}
+  flexWrap="wrap"
+ >
+
+ <Chip
+  label={`KES ${chat.price || 0}`}
+  sx={{
+   background:"rgba(244,180,0,.12)",
+   color:GOLD
+  }}
+ />
+
+ <Chip
+  icon={<LocationOn />}
+  label={
+   chat.location ||
+   "Location not set"
+  }
+
+  sx={{
+   background:"#171717",
+   color:"#ddd"
+  }}
+ />
+
+ </Stack>
+
+ <Typography
+  sx={{
+   mt:2,
+   color:"#aaa",
+   lineHeight:1.7,
+   fontSize:14
+  }}
+ >
+  {chat.description ||
+   "No description available"}
+ </Typography>
+
+ </Box>
+
+ </Stack>
+
+ <Divider
+  sx={{
+   borderColor:BORDER
+  }}
+ />
+
+ {/* =====================================================
+ SELLER INFO
+ ===================================================== */}
+
+ <Stack
+  direction={{
+   xs:"column",
+   md:"row"
+  }}
+  spacing={2}
+  justifyContent="space-between"
+  alignItems={{
+   xs:"flex-start",
+   md:"center"
+  }}
+ >
+
+ <Stack
+  direction="row"
+  spacing={2}
+  alignItems="center"
+ >
+
+ <Avatar
+  src={seller?.photo}
+  sx={{
+   background:"rgba(244,180,0,.12)",
+   color:GOLD
+  }}
+ >
+  <Storefront />
+ </Avatar>
+
+ <Box>
 
  <Typography
   sx={{
    fontWeight:800
   }}
  >
-  {chat.productTitle}
+  {seller?.fullName || "Seller"}
  </Typography>
+
+ <Stack
+  direction="row"
+  spacing={1}
+  alignItems="center"
+ >
+
+ <Phone
+  sx={{
+   fontSize:15,
+   color:"#4caf50"
+  }}
+ />
 
  <Typography
   sx={{
    color:"#888",
-   fontSize:13,
-   mt:1
+   fontSize:13
   }}
  >
-  Marketplace admins will help
-  coordinate this purchase safely.
+  {seller?.phone || "No phone"}
  </Typography>
 
+ </Stack>
+
  </Box>
+
+ </Stack>
+
+ <Button
+  startIcon={<Chat />}
+  onClick={openSellerChat}
+  sx={{
+   background:GOLD,
+   color:"#000",
+   fontWeight:800,
+   borderRadius:3,
+   px:3,
+
+   "&:hover":{
+    background:"#ffd54f"
+   }
+  }}
+ >
+  Chat Seller
+ </Button>
+
+ </Stack>
 
  </Stack>
 
@@ -449,10 +642,12 @@ export default function ChatRoom(){
 
  <Box
   key={msg.id}
+
   sx={{
    display:"flex",
+
    justifyContent:
-    msg.senderRole==="buyer"
+    msg.senderRole==="admin"
      ? "flex-end"
      : "flex-start"
   }}
@@ -465,26 +660,26 @@ export default function ChatRoom(){
    borderRadius:4,
 
    background:
-    msg.senderRole==="buyer"
-     ? GOLD
-     : CARD,
+    msg.senderRole==="admin"
+     ? "#000000"
+     :  "#000000",
 
    color:
-    msg.senderRole==="buyer"
-     ? "#000"
-     : "#fff",
+    msg.senderRole==="admin"
+     ? "#f3e51c"
+     : "#e7da19",
 
    border:
     msg.senderRole==="buyer"
-     ? "none"
-     : `1px solid ${BORDER}`
+     ? `1px solid ${BORDER}`
+     : "none"
   }}
  >
 
  <Typography
   sx={{
-   whiteSpace:"pre-wrap",
-   lineHeight:1.5
+   lineHeight:1.6,
+   whiteSpace:"pre-wrap"
   }}
  >
   {msg.text}
@@ -514,13 +709,8 @@ export default function ChatRoom(){
    : ""}
  </Typography>
 
- {msg.senderRole==="buyer" && (
-  <DoneAll
-   sx={{
-    fontSize:16,
-    opacity:.7
-   }}
-  />
+ {msg.senderRole==="admin" && (
+  <DoneAll sx={{fontSize:15}} />
  )}
 
  </Stack>
@@ -531,40 +721,21 @@ export default function ChatRoom(){
 
  ))}
 
- {adminTyping && (
-
- <Box
-  sx={{
-   display:"flex",
-   justifyContent:"flex-start"
-  }}
- >
-
- <Paper
-  sx={{
-   p:1.5,
-   borderRadius:4,
-   background:CARD,
-   border:`1px solid ${BORDER}`
-  }}
- >
+ {buyerTyping && (
 
  <Typography
   sx={{
-   color:"#aaa",
+   color:"#888",
+   fontSize:13,
    fontStyle:"italic"
   }}
  >
-  Admin is typing...
+  Buyer is typing...
  </Typography>
-
- </Paper>
-
- </Box>
 
  )}
 
- <div ref={messagesEndRef} />
+ <div ref={bottomRef} />
 
  </Stack>
 
@@ -577,31 +748,39 @@ export default function ChatRoom(){
  <Box
   sx={{
    p:2,
-   borderTop:`1px solid ${BORDER}`,
-   background:CARD
+   background:CARD,
+   borderTop:`1px solid ${BORDER}`
   }}
  >
 
  <Stack
   direction="row"
   spacing={1}
-  alignItems="center"
  >
 
  <TextField
   fullWidth
-  placeholder="Type your message..."
+
+  placeholder="Reply buyer..."
+
   value={message}
-  onChange={handleInput}
+
+  onChange={handleTyping}
 
   onKeyDown={(e)=>{
+
    if(e.key==="Enter"){
+
     e.preventDefault();
+
     sendMessage();
+
    }
+
   }}
 
   sx={{
+
    "& .MuiOutlinedInput-root":{
 
     background:"#0b0b0b",
@@ -623,14 +802,18 @@ export default function ChatRoom(){
     }
 
    }
+
   }}
  />
 
  <IconButton
   onClick={sendMessage}
+
+  disabled={sending}
+
   sx={{
-   width:52,
-   height:52,
+   width:55,
+   height:55,
    background:GOLD,
    color:"#000",
 

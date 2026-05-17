@@ -1,465 +1,1353 @@
 // src/pages/HouseDetails.js
 
-import React, { useEffect, useState } from "react";
+import React,{
+ useEffect,
+ useMemo,
+ useState
+}
+from "react";
 
 import {
-  Box,
-  Typography,
-  CircularProgress,
-  Button,
-  Chip,
-  TextField
-} from "@mui/material";
-
-import { useParams } from "react-router-dom";
+ Box,
+ Typography,
+ CircularProgress,
+ Button,
+ Chip,
+ TextField,
+ Stack,
+ Avatar,
+ IconButton,
+ Dialog
+}
+from "@mui/material";
 
 import {
-  doc,
-  getDoc,
-  collection,
-  addDoc,
-  serverTimestamp
-} from "firebase/firestore";
+ Verified,
+ Bolt,
+ LocationOn,
+ Bed,
+ Bathtub,
+ WhatsApp,
+ Chat,
+ FavoriteBorder,
+ Share,
+ Shield,
+ Wifi,
+ LocalParking,
+ WaterDrop,
+ ChevronLeft,
+ ChevronRight
+}
+from "@mui/icons-material";
 
-import { db, auth } from "../../services/firebase";
+import {
+ useParams,
+ useNavigate
+}
+from "react-router-dom";
 
+import {
+ doc,
+ getDoc,
+ collection,
+ addDoc,
+ serverTimestamp,
+ updateDoc,
+ increment
+}
+from "firebase/firestore";
 
-// THEME
-const GOLD = "#F4B400";
-const BG = "#0a0a0a";
-const CARD = "#111";
-const BORDER = "#222";
+import {
+ db,
+ auth
+}
+from "../../services/firebase";
 
+/* ======================================================
+THEME
+====================================================== */
 
-// PRICE FORMAT
-const formatPrice = (price) => {
-  if (!price) return "";
-  return "KES " + Number(price).toLocaleString();
+const GOLD="#F4B400";
+const BG="#050505";
+const CARD="#111";
+const BORDER="rgba(255,255,255,.08)";
+
+/* ======================================================
+ADMINS
+====================================================== */
+
+const ADMINS=[
+ "254758922614"
+];
+
+/* ======================================================
+HELPERS
+====================================================== */
+
+const formatPrice=(price)=>
+ `KES ${Number(price || 0).toLocaleString()}`;
+
+const formatPhone=(phone="")=>{
+
+ let cleaned=phone
+  .replace(/\s/g,"")
+  .replace(/\+/g,"");
+
+ if(cleaned.startsWith("07"))
+  cleaned=`254${cleaned.slice(1)}`;
+
+ if(cleaned.startsWith("01"))
+  cleaned=`254${cleaned.slice(1)}`;
+
+ return cleaned;
+
 };
 
+const getImages=(images=[])=>
 
-// IMAGE HELPER
-const getImages = (images) => {
-  if (!images) return [];
-  return images.map(img => img?.full || img?.thumb || img);
-};
+ images.map(img=>
 
+  typeof img==="string"
+   ? img
+   : img?.full || img?.thumb || ""
 
-export default function HouseDetails() {
+ );
 
-  const { id } = useParams();
+/* ======================================================
+PAGE
+====================================================== */
 
-  const [house, setHouse] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function HouseDetails(){
 
-  const [activeImage, setActiveImage] = useState(0);
-  const [relocationDate, setRelocationDate] = useState("");
-  const [sending, setSending] = useState(false);
+ const {id}=useParams();
 
+ const navigate=useNavigate();
 
-  useEffect(() => {
+ const[house,setHouse]=
+  useState(null);
 
-    const fetchHouse = async () => {
+ const[loading,setLoading]=
+  useState(true);
 
-      try {
+ const[index,setIndex]=
+  useState(0);
 
-        const ref = doc(db, "houses", id);
-        const snap = await getDoc(ref);
+ const[preview,setPreview]=
+  useState(null);
 
-        if (snap.exists()) {
+ const[relocationDate,setRelocationDate]=
+  useState("");
 
-          setHouse({
-            id: snap.id,
-            ...snap.data()
-          });
+ const[sending,setSending]=
+  useState(false);
 
-        }
+ /* ====================================================
+ FETCH
+ ==================================================== */
 
-      } catch (error) {
+ useEffect(()=>{
 
-        console.error(error);
+  const fetchHouse=async()=>{
 
-      } finally {
+   try{
 
-        setLoading(false);
+    const snap=await getDoc(
+     doc(db,"houses",id)
+    );
 
-      }
+    if(snap.exists()){
 
-    };
-
-    fetchHouse();
-
-  }, [id]);
-
-
-  const handleRequest = async () => {
-
-    if (!relocationDate) {
-      alert("Please select relocation date");
-      return;
-    }
-
-    if (!auth.currentUser) {
-      alert("Please login first");
-      return;
-    }
-
-    try {
-
-      setSending(true);
-
-      await addDoc(collection(db, "houseRequests"), {
-
-        houseId: house.id,
-        userId: auth.currentUser.uid,
-
-        relocationDate,
-
-        status: "pending",
-
-        createdAt: serverTimestamp()
-
-      });
-
-      alert("Request sent. Admin will contact you.");
-
-      setRelocationDate("");
-
-    } catch (error) {
-
-      console.error(error);
-      alert("Failed to send request");
+     setHouse({
+      id:snap.id,
+      ...snap.data()
+     });
 
     }
 
-    setSending(false);
+   }catch(err){
+
+    console.log(err);
+
+   }finally{
+
+    setLoading(false);
+
+   }
 
   };
 
+  fetchHouse();
 
-  if (loading) {
+ },[id]);
 
-    return (
-      <Box
-        sx={{
-          minHeight: "60vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center"
-        }}
-      >
-        <CircularProgress sx={{ color: GOLD }} />
-      </Box>
-    );
+ /* ====================================================
+ MEMO IMAGES
+ ==================================================== */
+
+ const images=useMemo(
+  ()=>getImages(house?.images),
+  [house]
+ );
+
+ /* ====================================================
+ SHARE
+ ==================================================== */
+
+ const handleShare=async()=>{
+
+  try{
+
+   const url=
+`${window.location.origin}/house/${house.id}`;
+
+   const text=
+`${house.title}
+
+${formatPrice(house.rent)} / month
+
+📍 ${house.location}
+
+View House:
+${url}
+
+Golden Biashnet`;
+
+   if(navigator.share){
+
+    await navigator.share({
+
+     title:house.title,
+     text,
+     url
+
+    });
+
+   }else{
+
+    await navigator.clipboard
+     .writeText(text);
+
+    alert("Link copied");
+
+   }
+
+  }catch(err){
+
+   console.log(err);
 
   }
 
+ };
 
-  if (!house) {
+ /* ====================================================
+ BOOK REQUEST
+ ==================================================== */
 
-    return (
-      <Box sx={{ p: 4 }}>
-        <Typography color="white">
-          House not found
-        </Typography>
-      </Box>
-    );
+ const handleRequest=async()=>{
 
-  }
+  if(!relocationDate)
+   return alert(
+    "Select relocation date"
+   );
 
+  if(!auth.currentUser)
+   return alert(
+    "Login required"
+   );
 
-  const images = getImages(house.images);
+  try{
 
+   setSending(true);
 
-  return (
+   await addDoc(
 
-    <Box sx={{ background: BG, minHeight: "100vh", pb: 6 }}>
+    collection(db,"houseRequests"),
 
-      {/* IMAGE GALLERY */}
+    {
 
-      {images.length > 0 && (
+     houseId:house.id,
 
-        <Box>
+     userId:
+      auth.currentUser.uid,
 
-          <img
-            src={images[activeImage]}
-            alt="house"
-            style={{
-              width: "100%",
-              height: "260px",
-              objectFit: "cover"
-            }}
-          />
+     ownerId:
+      house.ownerId || "",
 
-          {images.length > 1 && (
+     title:
+      house.title || "",
 
-            <Box
-              sx={{
-                display: "flex",
-                gap: 1,
-                p: 1,
-                overflowX: "auto"
-              }}
-            >
+     rent:
+      Number(house.rent || 0),
 
-              {images.map((img, i) => (
+     relocationDate,
 
-                <img
-                  key={i}
-                  src={img}
-                  alt="thumb"
-                  onClick={() => setActiveImage(i)}
-                  style={{
-                    width: "70px",
-                    height: "60px",
-                    objectFit: "cover",
-                    borderRadius: "6px",
-                    border:
-                      activeImage === i
-                        ? `2px solid ${GOLD}`
-                        : "2px solid transparent",
-                    cursor: "pointer"
-                  }}
-                />
+     status:"pending",
 
-              ))}
+     createdAt:
+      serverTimestamp()
 
-            </Box>
-
-          )}
-
-        </Box>
-
-      )}
-
-
-      {/* DETAILS */}
-
-      <Box sx={{ p: 2 }}>
-
-        {/* TITLE */}
-
-        <Typography
-          sx={{
-            color: "#fff",
-            fontSize: "22px",
-            fontWeight: "bold"
-          }}
-        >
-          {house.title}
-        </Typography>
-
-
-        {/* RENT */}
-
-        <Typography
-          sx={{
-            color: GOLD,
-            fontSize: "24px",
-            fontWeight: "bold",
-            mt: 1
-          }}
-        >
-          {formatPrice(house.rent)} / month
-        </Typography>
-
-
-        {/* HUNTING FEE */}
-
-        {house.huntingFee && (
-          <Typography sx={{ color: "#aaa", mt: 0.5 }}>
-            Hunting Fee: {formatPrice(house.huntingFee)}
-          </Typography>
-        )}
-
-
-        {/* LOCATION */}
-
-        <Typography sx={{ color: "#aaa", mt: 1 }}>
-          📍 {house.location}
-        </Typography>
-
-
-        {/* PROPERTY INFO */}
-
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            flexWrap: "wrap",
-            mt: 2
-          }}
-        >
-
-          <Chip label={`${house.bedrooms} Bedrooms`} sx={{ background: CARD, color: "#fff" }} />
-
-          <Chip label={`${house.bathrooms} Bathrooms`} sx={{ background: CARD, color: "#fff" }} />
-
-          {house.propertyType && (
-            <Chip label={house.propertyType} sx={{ background: CARD, color: "#fff" }} />
-          )}
-
-          {house.floor && (
-            <Chip label={`Floor ${house.floor}`} sx={{ background: CARD, color: "#fff" }} />
-          )}
-
-          {house.furnished && (
-            <Chip label={`Furnished: ${house.furnished}`} sx={{ background: CARD, color: "#fff" }} />
-          )}
-
-        </Box>
-
-
-        {/* BUILDING */}
-
-        <Box sx={{ mt: 3 }}>
-
-          <Typography sx={{ color: GOLD, fontWeight: "bold", mb: 1 }}>
-            Building Information
-          </Typography>
-
-          <Typography sx={{ color: "#ccc" }}>
-            Building: {house.buildingName}
-          </Typography>
-
-          <Typography sx={{ color: "#ccc" }}>
-            Street: {house.street}
-          </Typography>
-
-        </Box>
-
-
-        {/* UTILITIES */}
-
-        {house.utilities && (
-
-          <Box sx={{ mt: 3 }}>
-
-            <Typography sx={{ color: GOLD, fontWeight: "bold", mb: 1 }}>
-              Utilities
-            </Typography>
-
-            <Typography sx={{ color: "#ccc" }}>
-              {house.utilities}
-            </Typography>
-
-          </Box>
-
-        )}
-
-
-        {/* DESCRIPTION */}
-
-        <Box sx={{ mt: 3 }}>
-
-          <Typography sx={{ color: GOLD, fontWeight: "bold", mb: 1 }}>
-            Description
-          </Typography>
-
-          <Typography sx={{ color: "#ccc", lineHeight: 1.6 }}>
-            {house.description}
-          </Typography>
-
-        </Box>
-
-
-        {/* BOOK HOUSE */}
-
-        <Box
-          sx={{
-            mt: 4,
-            p: 2,
-            background: CARD,
-            border: `1px solid ${BORDER}`,
-            borderRadius: "10px"
-          }}
-        >
-
-          <Typography
-            sx={{
-              color: "#fff",
-              fontWeight: "bold",
-              mb: 2
-            }}
-          >
-            Interested in this house?
-          </Typography>
-
-          <Typography
-            sx={{
-              color: "#aaa",
-              fontSize: "13px",
-              mb: 2
-            }}
-          >
-            Select when you plan to relocate. Our admin team will contact you and arrange viewing.
-          </Typography>
-
-          <TextField
-  fullWidth
-  type="date"
-  label="Relocation Date"
-  InputLabelProps={{ shrink: true }}
-  value={relocationDate}
-  onChange={(e) => setRelocationDate(e.target.value)}
-  sx={{
-    mb: 4,
-
-    input: {
-      color: "#fff"
-    },
-
-    label: {
-      color: "#aaa"
-    },
-
-    "& .MuiOutlinedInput-root": {
-      "& fieldset": {
-        borderColor: "#333"
-      },
-      "&:hover fieldset": {
-        borderColor: "#F4B400"
-      },
-      "&.Mui-focused fieldset": {
-        borderColor: "#F4B400"
-      }
-    },
-
-    /* Calendar icon color */
-    "& input::-webkit-calendar-picker-indicator": {
-      filter: "invert(1) brightness(2)"
     }
-  }}
-/>
 
+   );
 
-          
+   await addDoc(
 
+    collection(
+     db,
+     "adminNotifications"
+    ),
 
-          <Button
-            fullWidth
-            variant="contained"
-            disabled={sending}
-            onClick={handleRequest}
-            sx={{
-              background: GOLD,
-              color: "#030303",
-              fontWeight: "bold",
-              height: 48,
-              "&:hover": {
-                background: "#FFD54F"
-              }
-            }}
-          >
-            {sending ? "Sending..." : "Book This House"}
-          </Button>
+    {
 
-        </Box>
+     type:"house_request",
 
-      </Box>
+     houseId:house.id,
 
-    </Box>
+     userId:
+      auth.currentUser.uid,
+
+     title:
+      "New House Request",
+
+     message:
+`${house.title} requested`,
+
+     read:false,
+
+     createdAt:
+      serverTimestamp()
+
+    }
+
+   );
+
+   if(house.ownerId){
+
+    await updateDoc(
+
+     doc(
+      db,
+      "users",
+      house.ownerId
+     ),
+
+     {
+
+      houseRequests:
+       increment(1)
+
+     }
+
+    );
+
+   }
+
+   alert(
+    "Viewing request sent"
+   );
+
+   setRelocationDate("");
+
+  }catch(err){
+
+   console.log(err);
+
+   alert("Failed");
+
+  }
+
+  setSending(false);
+
+ };
+
+ /* ====================================================
+ WHATSAPP ADMIN
+ ==================================================== */
+
+ const contactAdminsWhatsApp=
+ async()=>{
+
+  try{
+
+   const admin=
+    formatPhone(
+     ADMINS[0]
+    );
+
+   const message=
+`Hello Golden Biashnet Admin,
+
+I am interested in this house.
+
+HOUSE:
+${house.title}
+
+RENT:
+${formatPrice(house.rent)}
+
+LOCATION:
+${house.location}
+
+HOUSE ID:
+${house.id}
+
+Please assist me with viewing and booking.`;
+
+   window.open(
+
+`https://wa.me/${admin}?text=${encodeURIComponent(message)}`,
+
+    "_blank"
+
+   );
+
+  }catch(err){
+
+   console.log(err);
+
+  }
+
+ };
+
+ /* ====================================================
+ ADMIN CHAT
+ ==================================================== */
+
+ const startAdminChat=
+ async()=>{
+
+  try{
+
+   if(!auth.currentUser)
+    return alert(
+     "Login required"
+    );
+
+   const user=
+    auth.currentUser;
+
+   const ref=
+    await addDoc(
+
+     collection(
+      db,
+      "adminChats"
+     ),
+
+     {
+
+      userId:user.uid,
+
+      buyerId:user.uid,
+
+      houseId:house.id,
+
+      ownerId:
+       house.ownerId || "",
+
+      houseTitle:
+       house.title || "",
+
+      houseImage:
+       house.images?.[0]?.thumb ||
+
+       house.images?.[0]?.full ||
+
+       "",
+
+      houseRent:
+       Number(house.rent || 0),
+
+      type:"house_support",
+
+      status:"active",
+
+      visibility:
+       "admin_controlled",
+
+      lastMessage:
+`Interested in ${house.title}`,
+
+      lastMessageSender:
+       user.uid,
+
+      createdAt:
+       serverTimestamp(),
+
+      updatedAt:
+       serverTimestamp()
+
+     }
+
+    );
+
+   await addDoc(
+
+    collection(
+     db,
+     "adminNotifications"
+    ),
+
+    {
+
+     type:"house_interest",
+
+     houseId:house.id,
+
+     buyerId:user.uid,
+
+     chatId:ref.id,
+
+     title:
+      "New House Inquiry",
+
+     message:
+`${user.displayName || "User"} is interested in ${house.title}`,
+
+     image:
+      house.images?.[0]?.thumb ||
+
+      "",
+
+     read:false,
+
+     createdAt:
+      serverTimestamp()
+
+    }
+
+   );
+
+   navigate(
+    `/support-chat/${ref.id}`
+   );
+
+  }catch(err){
+
+   console.log(err);
+
+   alert(
+    "Failed to start chat"
+   );
+
+  }
+
+ };
+
+ /* ====================================================
+ LOADING
+ ==================================================== */
+
+ if(loading){
+
+  return(
+
+   <Box
+    sx={{
+     minHeight:"100vh",
+     background:BG,
+     display:"flex",
+     justifyContent:"center",
+     alignItems:"center"
+    }}
+   >
+
+    <CircularProgress
+     sx={{
+      color:GOLD
+     }}
+    />
+
+   </Box>
 
   );
+
+ }
+
+ if(!house){
+
+  return(
+
+   <Box
+    sx={{
+     background:BG,
+     minHeight:"100vh",
+     p:3
+    }}
+   >
+
+    <Typography
+     sx={{
+      color:"#fff"
+     }}
+    >
+     House not found
+    </Typography>
+
+   </Box>
+
+  );
+
+ }
+
+ /* ====================================================
+ UI
+ ==================================================== */
+
+ return(
+
+ <Box
+  sx={{
+   background:BG,
+   minHeight:"100vh",
+   color:"#fff",
+   pb:10
+  }}
+ >
+
+  {/* ==================================================
+     HERO IMAGE
+  ================================================== */}
+
+  <Box
+   sx={{
+    position:"relative"
+   }}
+  >
+
+   <Box
+    component="img"
+
+    src={images[index]}
+
+    onClick={()=>
+     setPreview(
+      images[index]
+     )
+    }
+
+    sx={{
+     width:"100%",
+     height:{
+      xs:300,
+      md:500
+     },
+     objectFit:"cover"
+    }}
+   />
+
+   <Box
+    sx={{
+     position:"absolute",
+     inset:0,
+     background:
+"linear-gradient(to top,rgba(0,0,0,.9),transparent)"
+    }}
+   />
+
+   {/* ACTIONS */}
+
+   <Stack
+    direction="row"
+    spacing={1}
+
+    sx={{
+     position:"absolute",
+     top:15,
+     right:15
+    }}
+   >
+
+    <IconButton
+     sx={{
+      background:
+       "rgba(0,0,0,.5)"
+     }}
+    >
+
+     <FavoriteBorder
+      sx={{
+       color:"#fff"
+      }}
+     />
+
+    </IconButton>
+
+    <IconButton
+     onClick={handleShare}
+
+     sx={{
+      background:
+       "rgba(0,0,0,.5)"
+     }}
+    >
+
+     <Share
+      sx={{
+       color:"#fff"
+      }}
+     />
+
+    </IconButton>
+
+   </Stack>
+
+   {/* BADGES */}
+
+   <Stack
+    direction="row"
+    spacing={1}
+
+    sx={{
+     position:"absolute",
+     top:15,
+     left:15
+    }}
+   >
+
+    <Chip
+     icon={<Verified />}
+     label="Verified"
+
+     sx={{
+      background:"#1b5e20",
+      color:"#fff"
+     }}
+    />
+
+    <Chip
+     icon={<Bolt />}
+     label="Hot"
+
+     sx={{
+      background:GOLD,
+      color:"#000",
+      fontWeight:900
+     }}
+    />
+
+   </Stack>
+
+   {/* NAV */}
+
+   {images.length>1 && (
+
+   <>
+
+   <IconButton
+    onClick={()=>
+
+     setIndex(prev=>
+
+      prev===0
+       ? images.length-1
+       : prev-1
+
+     )
+
+    }
+
+    sx={{
+     position:"absolute",
+     top:"50%",
+     left:10,
+     transform:
+      "translateY(-50%)",
+
+     background:
+      "rgba(0,0,0,.5)"
+    }}
+   >
+
+    <ChevronLeft
+     sx={{
+      color:"#fff"
+     }}
+    />
+
+   </IconButton>
+
+   <IconButton
+    onClick={()=>
+
+     setIndex(prev=>
+
+      prev===images.length-1
+       ? 0
+       : prev+1
+
+     )
+
+    }
+
+    sx={{
+     position:"absolute",
+     top:"50%",
+     right:10,
+     transform:
+      "translateY(-50%)",
+
+     background:
+      "rgba(0,0,0,.5)"
+    }}
+   >
+
+    <ChevronRight
+     sx={{
+      color:"#fff"
+     }}
+    />
+
+   </IconButton>
+
+   </>
+
+   )}
+
+  </Box>
+
+  {/* ==================================================
+     THUMBNAILS
+  ================================================== */}
+
+  {images.length>1 && (
+
+  <Box
+   sx={{
+    display:"flex",
+    gap:1,
+    overflowX:"auto",
+    p:1.5,
+
+    "&::-webkit-scrollbar":{
+     display:"none"
+    }
+   }}
+  >
+
+   {images.map((img,i)=>(
+
+   <Box
+    key={i}
+
+    component="img"
+
+    src={img}
+
+    onClick={()=>
+     setIndex(i)
+    }
+
+    sx={{
+     width:75,
+     height:65,
+     borderRadius:2,
+     objectFit:"cover",
+     flexShrink:0,
+     border:
+
+      index===i
+
+       ? `2px solid ${GOLD}`
+       : "2px solid transparent"
+
+    }}
+   />
+
+   ))}
+
+  </Box>
+
+  )}
+
+  {/* ==================================================
+     DETAILS
+  ================================================== */}
+
+  <Box
+   sx={{
+    p:2,
+    maxWidth:850,
+    mx:"auto"
+   }}
+  >
+
+   <Typography
+    sx={{
+     fontSize:28,
+     fontWeight:900
+    }}
+   >
+    {house.title}
+   </Typography>
+
+   <Typography
+    sx={{
+     color:GOLD,
+     fontWeight:900,
+     fontSize:30,
+     mt:1
+    }}
+   >
+    {formatPrice(house.rent)}
+    {" "}
+    / month
+   </Typography>
+
+   <Typography
+    sx={{
+     color:"#00e676",
+     fontWeight:700,
+     mt:1
+    }}
+   >
+    Hunting Fee:
+    {" "}
+    {formatPrice(
+     house.huntingFee
+    )}
+   </Typography>
+
+   <Stack
+    direction="row"
+    spacing={1}
+    alignItems="center"
+
+    sx={{
+     mt:1
+    }}
+   >
+
+    <LocationOn
+     sx={{
+      color:"#888"
+     }}
+    />
+
+    <Typography
+     sx={{
+      color:"#aaa"
+     }}
+    >
+     {house.location}
+    </Typography>
+
+   </Stack>
+
+   {/* TRUST */}
+
+   <Stack
+    direction="row"
+    spacing={1}
+    flexWrap="wrap"
+
+    sx={{
+     mt:2
+    }}
+   >
+
+    <Chip
+     icon={<Shield />}
+     label="Admin Verified"
+
+     sx={{
+      background:
+       "rgba(0,188,212,.12)",
+
+      color:"#4dd0e1"
+     }}
+    />
+
+    <Chip
+     label="Safe Process"
+
+     sx={{
+      background:
+       "rgba(244,180,0,.12)",
+
+      color:GOLD
+     }}
+    />
+
+   </Stack>
+
+   {/* INFO */}
+
+   <Stack
+    direction="row"
+    spacing={3}
+
+    sx={{
+     mt:3
+    }}
+   >
+
+    <Stack
+     direction="row"
+     spacing={1}
+     alignItems="center"
+    >
+
+     <Bed
+      sx={{
+       color:"#888"
+      }}
+     />
+
+     <Typography>
+      {house.bedrooms}
+      {" "}
+      Beds
+     </Typography>
+
+    </Stack>
+
+    <Stack
+     direction="row"
+     spacing={1}
+     alignItems="center"
+    >
+
+     <Bathtub
+      sx={{
+       color:"#888"
+      }}
+     />
+
+     <Typography>
+      {house.bathrooms}
+      {" "}
+      Baths
+     </Typography>
+
+    </Stack>
+
+   </Stack>
+
+   {/* AMENITIES */}
+
+   <Box sx={{mt:4}}>
+
+    <Typography
+     sx={{
+      color:GOLD,
+      fontWeight:900,
+      mb:1.5
+     }}
+    >
+     Amenities
+    </Typography>
+
+    <Stack
+     direction="row"
+     spacing={1}
+     flexWrap="wrap"
+     useFlexGap
+    >
+
+     {[
+      {
+       icon:<Wifi />,
+       label:"WiFi"
+      },
+
+      {
+       icon:<WaterDrop />,
+       label:"Water"
+      },
+
+      {
+       icon:<LocalParking />,
+       label:"Parking"
+      }
+
+     ].map((item,i)=>(
+
+     <Chip
+      key={i}
+
+      icon={item.icon}
+
+      label={item.label}
+
+      sx={{
+       background:CARD,
+       color:"#fff"
+      }}
+     />
+
+     ))}
+
+    </Stack>
+
+   </Box>
+
+   {/* DESCRIPTION */}
+
+   <Box sx={{mt:4}}>
+
+    <Typography
+     sx={{
+      color:GOLD,
+      fontWeight:900,
+      mb:1
+     }}
+    >
+     Description
+    </Typography>
+
+    <Typography
+     sx={{
+      color:"#ccc",
+      lineHeight:1.8
+     }}
+    >
+     {house.description}
+    </Typography>
+
+   </Box>
+
+   {/* CONTACT */}
+
+   <Box
+    sx={{
+     mt:4,
+     p:2.5,
+     borderRadius:4,
+     background:CARD,
+     border:
+      `1px solid ${BORDER}`
+    }}
+   >
+
+    <Stack
+     direction="row"
+     spacing={1.5}
+     alignItems="center"
+    >
+
+     <Avatar
+      sx={{
+       background:GOLD,
+       color:"#000"
+      }}
+     >
+
+      <Shield />
+
+     </Avatar>
+
+     <Box>
+
+      <Typography
+       sx={{
+        fontWeight:900
+       }}
+      >
+       Secure Admin Coordination
+      </Typography>
+
+      <Typography
+       sx={{
+        color:"#999",
+        fontSize:13,
+        mt:.5
+       }}
+      >
+       Golden Biashnet helps
+       verify houses, arrange
+       viewings and coordinate
+       safe communication.
+      </Typography>
+
+     </Box>
+
+    </Stack>
+
+    <Stack
+     spacing={1.5}
+
+     sx={{
+      mt:3
+     }}
+    >
+
+     <Button
+      fullWidth
+
+      startIcon={<Chat />}
+
+      onClick={startAdminChat}
+
+      sx={{
+       height:54,
+       borderRadius:3,
+       fontWeight:900,
+       background:
+"linear-gradient(45deg,#F4B400,#FFD95A)",
+       color:"#000",
+
+       "&:hover":{
+        background:
+"linear-gradient(45deg,#FFD95A,#F4B400)"
+       }
+      }}
+     >
+      Chat With Admin
+     </Button>
+
+     <Button
+      fullWidth
+
+      startIcon={<WhatsApp />}
+
+      onClick={
+       contactAdminsWhatsApp
+      }
+
+      sx={{
+       height:52,
+       borderRadius:3,
+       fontWeight:900,
+       background:"#25D366",
+       color:"#000"
+      }}
+     >
+      WhatsApp Admin
+     </Button>
+
+    </Stack>
+
+   </Box>
+
+   {/* BOOKING */}
+
+   <Box
+    sx={{
+     mt:4,
+     p:2.5,
+     borderRadius:4,
+     background:CARD,
+     border:
+      `1px solid ${BORDER}`
+    }}
+   >
+
+    <Typography
+     sx={{
+      fontWeight:900,
+      fontSize:18
+     }}
+    >
+     Book House Viewing
+    </Typography>
+
+    <Typography
+     sx={{
+      color:"#888",
+      fontSize:13,
+      mt:1,
+      mb:2
+     }}
+    >
+     Select your expected
+     relocation date and
+     admins will coordinate
+     viewing and booking.
+    </Typography>
+
+    <TextField
+     fullWidth
+
+     type="date"
+
+     value={relocationDate}
+
+     onChange={(e)=>
+      setRelocationDate(
+       e.target.value
+      )
+     }
+
+     sx={{
+
+      mb:2,
+
+      input:{
+       color:"#fff"
+      },
+
+      "& .MuiOutlinedInput-root":{
+
+       "& fieldset":{
+        borderColor:"#333"
+       },
+
+       "&:hover fieldset":{
+        borderColor:GOLD
+       },
+
+       "&.Mui-focused fieldset":{
+        borderColor:GOLD
+       }
+
+      }
+
+     }}
+    />
+
+    <Button
+     fullWidth
+
+     disabled={sending}
+
+     onClick={handleRequest}
+
+     sx={{
+      height:54,
+      borderRadius:3,
+      fontWeight:900,
+      background:GOLD,
+      color:"#000"
+     }}
+    >
+     {sending
+      ? "Sending..."
+      : "Book Viewing"}
+    </Button>
+
+   </Box>
+
+  </Box>
+
+  {/* ==================================================
+     PREVIEW
+  ================================================== */}
+
+  <Dialog
+   open={Boolean(preview)}
+
+   onClose={()=>
+    setPreview(null)
+   }
+
+   maxWidth="lg"
+  >
+
+   <img
+    src={preview}
+    alt="preview"
+
+    style={{
+     width:"100%",
+     height:"auto"
+    }}
+   />
+
+  </Dialog>
+
+ </Box>
+
+ );
 
 }

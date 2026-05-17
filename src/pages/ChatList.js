@@ -1,272 +1,497 @@
-import React, { useEffect, useState } from "react";
+import React,{useEffect,useMemo,useState} from "react";
+
 import {
-  Box,
-  Typography,
-  Paper,
-  Avatar,
-  TextField,
-  InputAdornment,
-  Divider,
-  Badge,
-  CircularProgress
+ Box,
+ Paper,
+ Stack,
+ Typography,
+ Avatar,
+ Tabs,
+ Tab,
+ Chip,
+ TextField,
+ InputAdornment,
+ Badge
 } from "@mui/material";
 
-import SearchIcon from "@mui/icons-material/Search";
+import {
+ Search,
+ SupportAgent,
+ Storefront,
+ Person,
+ Shield,
+ Chat
+} from "@mui/icons-material";
 
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  getDoc
+ collection,
+ query,
+ where,
+ orderBy,
+ onSnapshot
 } from "firebase/firestore";
 
-import { db, auth } from "../services/firebase";
-import { useNavigate } from "react-router-dom";
+import {
+ auth,
+ db
+} from "../services/firebase";
 
-const COLORS = {
-  GOLD: "#F4B400",
-  BLACK: "#0a0a0a",
-  CARD: "#111",
-  BORDER: "#222",
-  TEXT: "#fff",
-  MUTED: "#aaa",
-  ONLINE: "#4CAF50"
-};
+import {useNavigate} from "react-router-dom";
 
-export default function ChatList() {
-  const [chats, setChats] = useState([]);
-  const [usersMap, setUsersMap] = useState({});
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+/* =========================================================
+THEME
+========================================================= */
 
-  const user = auth.currentUser;
-  const navigate = useNavigate();
+const GOLD="#F4B400",
+BG="#050505",
+CARD="#101010",
+BORDER="#232323";
 
-  /* ===================================== */
-  /* LOAD CHATS + USERS */
-  /* ===================================== */
+/* =========================================================
+COMPONENT
+========================================================= */
 
-  useEffect(() => {
-    if (!user?.uid) return;
+export default function SupportChats(){
 
-    const q = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", user.uid)
-    );
+ const navigate=useNavigate();
 
-    const unsub = onSnapshot(q, async (snapshot) => {
-      const list = [];
+ const [search,setSearch]=useState("");
 
-      snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() });
-      });
+ const [tab,setTab]=useState(0);
 
-      // ✅ sort by latest message
-      list.sort(
-        (a, b) =>
-          (b.lastMessageAt?.seconds || 0) -
-          (a.lastMessageAt?.seconds || 0)
-      );
+ const [buyerChats,setBuyerChats]=useState([]);
 
-      setChats(list);
+ const [sellerChats,setSellerChats]=useState([]);
 
-      // ✅ collect other user IDs
-      const userIds = new Set();
+ /* =========================================================
+ LOAD BUYER CHATS
+========================================================= */
 
-      list.forEach((chat) => {
-        chat.participants.forEach((id) => {
-          if (id !== user.uid) userIds.add(id);
-        });
-      });
+ useEffect(()=>{
 
-      // ✅ fetch user data
-      const newMap = {};
+  if(!auth.currentUser) return;
 
-      await Promise.all(
-        [...userIds].map(async (id) => {
-          const snap = await getDoc(doc(db, "users", id)); // 🔥 USE CORRECT COLLECTION
-          if (snap.exists()) {
-            newMap[id] = snap.data();
-          }
-        })
-      );
+  const q=query(
+   collection(db,"adminChats"),
+   where("buyerId","==",auth.currentUser.uid),
+   orderBy("createdAt","desc")
+  );
 
-      setUsersMap(newMap);
-      setLoading(false);
-    });
+  const unsub=onSnapshot(q,snap=>{
 
-    return () => unsub();
-  }, [user]);
+   setBuyerChats(
+    snap.docs.map(doc=>({
+     id:doc.id,
+     type:"buyer",
+     ...doc.data()
+    }))
+   );
 
-  /* ===================================== */
-  /* HELPERS */
-  /* ===================================== */
-
-  const getOtherUserId = (chat) =>
-    chat.participants.find((id) => id !== user.uid);
-
-  /* ===================================== */
-  /* FILTER ONLY EXISTING CHATS */
-  /* ===================================== */
-
-  const filteredChats = chats.filter((chat) => {
-    const otherId = getOtherUserId(chat);
-    const name = usersMap[otherId]?.name || "";
-    return name.toLowerCase().includes(search.toLowerCase());
   });
 
-  /* ===================================== */
-  /* LOADING */
-  /* ===================================== */
+  return()=>unsub();
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          background: COLORS.BLACK
-        }}
-      >
-        <CircularProgress sx={{ color: COLORS.GOLD }} />
-      </Box>
-    );
+ },[]);
+
+ /* =========================================================
+ LOAD SELLER CHATS
+========================================================= */
+
+ useEffect(()=>{
+
+  if(!auth.currentUser) return;
+
+  const q=query(
+   collection(db,"adminSellerChats"),
+   where("sellerId","==",auth.currentUser.uid),
+   orderBy("createdAt","desc")
+  );
+
+  const unsub=onSnapshot(q,snap=>{
+
+   setSellerChats(
+    snap.docs.map(doc=>({
+     id:doc.id,
+     type:"seller",
+     ...doc.data()
+    }))
+   );
+
+  });
+
+  return()=>unsub();
+
+ },[]);
+
+ /* =========================================================
+ FILTER
+========================================================= */
+
+ const chats=useMemo(()=>{
+
+  const list=tab===0
+   ? buyerChats
+   : sellerChats;
+
+  return list.filter(chat=>{
+
+   const text=`
+    ${chat.productTitle || ""}
+    ${chat.lastMessage || ""}
+    ${chat.sellerLastMessage || ""}
+   `.toLowerCase();
+
+   return text.includes(
+    search.toLowerCase()
+   );
+
+  });
+
+ },[
+  buyerChats,
+  sellerChats,
+  tab,
+  search
+ ]);
+
+ /* =========================================================
+ OPEN CHAT
+========================================================= */
+
+ const openChat=(chat)=>{
+
+  if(chat.type==="buyer"){
+
+   navigate(`/support-chat/${chat.id}`);
+
+  }else{
+
+   navigate(
+    `/seller-support-chat/${chat.id}`
+   );
+
   }
 
-  /* ===================================== */
-  /* UI */
-  /* ===================================== */
+ };
 
-  return (
-    <Box
-      sx={{
-        p: 2,
-        background: COLORS.BLACK,
-        minHeight: "100vh",
-        color: COLORS.TEXT
-      }}
-    >
-      {/* HEADER */}
-      <Typography
-        sx={{
-          color: COLORS.GOLD,
-          fontWeight: 800,
-          fontSize: 22,
-          mb: 2
-        }}
-      >
-        Messages
-      </Typography>
+ /* =========================================================
+ UI
+========================================================= */
 
-      {/* SEARCH */}
-      <TextField
-        fullWidth
-        placeholder="Search conversations..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{
-          mb: 2,
-          background: COLORS.CARD,
-          borderRadius: 2,
-          input: { color: COLORS.TEXT }
-        }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: COLORS.GOLD }} />
-            </InputAdornment>
-          )
-        }}
-      />
+ return(
 
-      <Divider sx={{ background: COLORS.BORDER, mb: 2 }} />
+ <Box
+  sx={{
+   background:BG,
+   minHeight:"100vh",
+   color:"#fff"
+  }}
+ >
 
-      {/* EMPTY */}
-      {filteredChats.length === 0 && (
-        <Typography sx={{ color: COLORS.MUTED }}>
-          No conversations yet
-        </Typography>
-      )}
+ {/* =====================================================
+ HEADER
+===================================================== */}
 
-      {/* CHAT LIST */}
-      {filteredChats.map((chat) => {
-        const otherId = getOtherUserId(chat);
-        const otherUser = usersMap[otherId];
+ <Box
+  sx={{
+   p:2,
+   borderBottom:`1px solid ${BORDER}`,
+   background:CARD,
+   position:"sticky",
+   top:0,
+   zIndex:10
+  }}
+ >
 
-        const unread = chat.unreadCount?.[user.uid] || 0;
+ <Stack
+  direction="row"
+  spacing={1}
+  alignItems="center"
+  mb={2}
+ >
 
-        return (
-          <Paper
-            key={chat.id}
-            onClick={() => navigate(`/chat/${chat.id}`)}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              p: 2,
-              mb: 1.2,
-              cursor: "pointer",
-              background: COLORS.CARD,
-              borderRadius: 2,
-              "&:hover": {
-                background: "#1a1a1a"
-              }
-            }}
-          >
-            {/* LEFT */}
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              
-              <Avatar
-                src={otherUser?.photoURL || ""}
-                sx={{
-                  bgcolor: COLORS.GOLD,
-                  color: "#000",
-                  fontWeight: 700
-                }}
-              >
-                {!otherUser?.photoURL &&
-                  (otherUser?.name?.charAt(0) || "U")}
-              </Avatar>
+ <SupportAgent sx={{color:GOLD}} />
 
-              <Box>
-                <Typography fontWeight={700}>
-                  {otherUser?.name || "User"}
-                </Typography>
+ <Typography
+  sx={{
+   fontWeight:900,
+   fontSize:22
+  }}
+ >
+  Support Chats
+ </Typography>
 
-                <Typography
-                  sx={{
-                    fontSize: 13,
-                    color: unread ? "#fff" : COLORS.MUTED,
-                    fontWeight: unread ? 600 : 400
-                  }}
-                >
-                  {chat.lastMessage || "Start conversation"}
-                </Typography>
-              </Box>
-            </Box>
+ </Stack>
 
-            {/* RIGHT */}
-            <Box textAlign="right">
-              {chat.lastMessageAt?.toDate && (
-                <Typography sx={{ fontSize: 11, color: COLORS.MUTED }}>
-                  {chat.lastMessageAt.toDate().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })}
-                </Typography>
-              )}
+ {/* =====================================================
+ TABS
+===================================================== */}
 
-              {unread > 0 && (
-                <Badge badgeContent={unread} color="error" sx={{ mt: 1 }} />
-              )}
-            </Box>
-          </Paper>
-        );
-      })}
-    </Box>
-  );
+ <Tabs
+  value={tab}
+  onChange={(e,v)=>setTab(v)}
+  sx={{
+
+   mb:2,
+
+   "& .MuiTab-root":{
+    color:"#888",
+    fontWeight:700
+   },
+
+   "& .Mui-selected":{
+    color:GOLD
+   }
+
+  }}
+ >
+
+ <Tab
+  icon={<Person />}
+  iconPosition="start"
+  label={`Buyer Chats (${buyerChats.length})`}
+ />
+
+ <Tab
+  icon={<Storefront />}
+  iconPosition="start"
+  label={`Seller Chats (${sellerChats.length})`}
+ />
+
+ </Tabs>
+
+ {/* =====================================================
+ SEARCH
+===================================================== */}
+
+ <TextField
+  fullWidth
+  placeholder="Search support chats..."
+  value={search}
+  onChange={(e)=>
+   setSearch(e.target.value)
+  }
+  InputProps={{
+   startAdornment:(
+    <InputAdornment position="start">
+     <Search sx={{color:"#777"}} />
+    </InputAdornment>
+   )
+  }}
+  sx={{
+   "& .MuiOutlinedInput-root":{
+    background:"#0b0b0b",
+    color:"#fff",
+    borderRadius:4,
+
+    "& fieldset":{
+     borderColor:BORDER
+    }
+   }
+  }}
+ />
+
+ </Box>
+
+ {/* =====================================================
+ LIST
+===================================================== */}
+
+ <Box p={2}>
+
+ <Stack spacing={2}>
+
+ {chats.map(chat=>(
+
+ <Paper
+  key={chat.id}
+  onClick={()=>openChat(chat)}
+  sx={{
+   p:2,
+   background:CARD,
+   border:`1px solid ${BORDER}`,
+   borderRadius:5,
+   cursor:"pointer",
+   transition:".2s",
+
+   "&:hover":{
+    border:`1px solid ${GOLD}`,
+    transform:"translateY(-2px)"
+   }
+  }}
+ >
+
+ <Stack
+  direction="row"
+  spacing={2}
+  alignItems="center"
+ >
+
+ {/* =====================================================
+ IMAGE
+===================================================== */}
+
+ <Badge
+  overlap="circular"
+  anchorOrigin={{
+   vertical:"bottom",
+   horizontal:"right"
+  }}
+  badgeContent={
+
+   <Avatar
+    sx={{
+     width:22,
+     height:22,
+     background:GOLD,
+     color:"#000"
+    }}
+   >
+    <Shield sx={{fontSize:14}} />
+   </Avatar>
+
+  }
+ >
+
+ <Avatar
+  src={chat.productImage}
+  sx={{
+   width:65,
+   height:65
+  }}
+ >
+  <Chat />
+ </Avatar>
+
+ </Badge>
+
+ {/* =====================================================
+ DETAILS
+===================================================== */}
+
+ <Box flex={1}>
+
+ <Stack
+  direction="row"
+  justifyContent="space-between"
+  alignItems="center"
+  mb={1}
+ >
+
+ <Typography
+  sx={{
+   fontWeight:800,
+   fontSize:15
+  }}
+ >
+  {chat.productTitle || "Support Chat"}
+ </Typography>
+
+ <Chip
+  size="small"
+  label={chat.status || "active"}
+  sx={{
+   background:"rgba(244,180,0,.12)",
+   color:GOLD,
+   border:`1px solid ${GOLD}`,
+   fontWeight:700
+  }}
+ />
+
+ </Stack>
+
+ <Typography
+  sx={{
+   color:"#ccc",
+   fontSize:13,
+   mb:1
+  }}
+ >
+  {
+   tab===0
+    ? (
+       chat.lastMessage ||
+       "Open buyer support conversation"
+      )
+    : (
+       chat.sellerLastMessage ||
+       "Open seller support conversation"
+      )
+  }
+ </Typography>
+
+ <Typography
+  sx={{
+   color:"#777",
+   fontSize:12
+  }}
+ >
+  {tab===0
+   ? "Admin Support Team"
+   : "Seller Coordination"}
+ </Typography>
+
+ </Box>
+
+ </Stack>
+
+ </Paper>
+
+ ))}
+
+ {/* =====================================================
+ EMPTY
+===================================================== */}
+
+ {chats.length===0 && (
+
+ <Paper
+  sx={{
+   p:5,
+   background:CARD,
+   border:`1px solid ${BORDER}`,
+   borderRadius:5,
+   textAlign:"center"
+  }}
+ >
+
+ <SupportAgent
+  sx={{
+   fontSize:55,
+   color:GOLD,
+   mb:2
+  }}
+ />
+
+ <Typography
+  sx={{
+   fontWeight:900,
+   fontSize:18
+  }}
+ >
+  No Support Chats
+ </Typography>
+
+ <Typography
+  sx={{
+   color:"#888",
+   mt:1
+  }}
+ >
+  Your conversations with admins
+  will appear here.
+ </Typography>
+
+ </Paper>
+
+ )}
+
+ </Stack>
+
+ </Box>
+
+ </Box>
+
+ );
+
 }

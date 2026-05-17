@@ -37,6 +37,7 @@ import InvestorDashboard from "./pages/InvestorDashboard";
 import Notify from "./pages/Notify";
 import ChatList from "./pages/ChatList";
 import ChatRoom from "./pages/ChatRoom";
+import ChatSeller from "./pages/ChatSeller";
 
 
 //Admin
@@ -47,11 +48,15 @@ import AdminHouses from "./pages/AdminHouses";
 import AdminAdverts from "./pages/AdminAdverts";
 import AdminServices from "./pages/AdminServices";
 import AdminInvestor from "./pages/AdminInvestor";
-import AdminMembers from "./pages/AdminMembers";
+import AdminSupport from "./pages/AdminSupport";
 import AdminNotify from "./pages/AdminNotify";
 import AdminOrders from "./pages/AdminOrders";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSuper from "./pages/AdminSuper";
+import AdminSub from "./pages/AdminSub";
+import AdminChat from "./pages/AdminChat";
+import AdminChatSeller from "./pages/AdminChatSeller";
+import AdminSeller from "./pages/AdminSeller";
 
 
 
@@ -108,7 +113,8 @@ export default function App() {
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/notify" element={<Notify />} />
                 <Route path="/chats" element={<ChatList />} />
-                <Route path="/chat/:chatId" element={<ChatRoom />} />
+                <Route path="/support-chat/:chatId" element={<ChatRoom />} />
+                <Route path="/seller-support-chat/:chatId" element={<ChatSeller />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/boost" element={<Boost />} />
                 <Route path="/my-uploads" element={<MyUploads />} />
@@ -186,11 +192,11 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/members"
+          path="/admin/support"
           element={
             <ProtectedAdminRoute>
               <AdminAppLayout>
-                <AdminMembers />
+                <AdminSupport />
               </AdminAppLayout>
             </ProtectedAdminRoute>
           }
@@ -263,6 +269,50 @@ export default function App() {
             <ProtectedAdminRoute>
               <AdminAppLayout>
                 <AdminSuper/>
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+
+         <Route
+          path="/admin/sub"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminSub/>
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+        <Route
+          path="/admin/seller"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminSeller/>
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+
+
+         <Route
+          path="/admin/chat/:chatId"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminChat/>
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/seller-chat/:chatId"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminChatSeller/>
               </AdminAppLayout>
             </ProtectedAdminRoute>
           }
