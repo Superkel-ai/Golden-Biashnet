@@ -42,6 +42,7 @@ import {
 import { auth, db } from "../services/firebase";
 
 import { useNavigate } from "react-router-dom";
+import InfiniteProducts from "../components/home/InfiniteProducts";
 
 
 // ======================================================
@@ -176,8 +177,7 @@ export default function Cart() {
       const q = query(
         collection(db, "products"),
         where("category", "==", category),
-        where("status", "==", "approved"),
-        limit(6)
+        where("status", "==", "approved")
       );
 
       const snap = await getDocs(q);
@@ -553,70 +553,22 @@ export default function Cart() {
         )}
 
 
-        {/* SUGGESTIONS */}
+        {/* =========================
+   YOU MAY ALSO LIKE
+========================= */}
+<Box mt={6}>
 
-        {suggestions.length > 0 && (
+  <Typography variant="h6" mb={2}>
+    You may also like
+  </Typography>
 
-          <Box mt={6}>
+  <InfiniteProducts
+    category={cartItems?.[0]?.category}
+    limitCount={10}
+    grid={true}
+  />
 
-            <Typography variant="h6" mb={2}>
-              You may also like
-            </Typography>
-
-            <Grid container spacing={2}>
-
-              {suggestions.map(item => (
-
-                <Grid item xs={6} md={2} key={item.id}>
-
-                  <Paper
-                    onClick={() =>
-                      navigate(`/product/${item.id}`)
-                    }
-                    sx={{
-                      p: 1,
-                      cursor: "pointer",
-                      background: THEME.cardBg
-                    }}
-                  >
-
-                    <img
-                      src={item.images?.[0]?.thumb}
-                      alt=""
-                      style={{
-                        width: "100%",
-                        borderRadius: 6
-                      }}
-                    />
-
-                    <Typography
-                      fontSize={14}
-                      noWrap
-                    >
-                      {item.title}
-                    </Typography>
-
-                    <Typography
-                      sx={{
-                        color: THEME.primary,
-                        fontWeight: "bold"
-                      }}
-                    >
-                      {formatPrice(item.price)}
-                    </Typography>
-
-                  </Paper>
-
-                </Grid>
-
-              ))}
-
-            </Grid>
-
-          </Box>
-
-        )}
-
+</Box>
       </Container>
 
     </Box>

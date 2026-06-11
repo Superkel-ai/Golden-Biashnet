@@ -13,14 +13,14 @@ export default function SplashScreen() {
       }}
     >
       <img
-        src="/logo.png"
+        src="/biash512.jpeg"
         alt="Golden Biashnet"
         style={{
           width: 400,
           height: 400,
           
 
-          animation: "fadeIn 3s ease-in-out",
+          animation: "fadeIn 1s ease-in-out",
           objectFit: "contain"
 
         }}

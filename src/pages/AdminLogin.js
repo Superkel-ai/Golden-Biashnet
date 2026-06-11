@@ -1,61 +1,49 @@
 import React, { useState } from "react";
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Alert
-} from "@mui/material";
+import { Box, Typography, Button, Paper, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-
-import { db } from "../services/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "../services/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 
 const GOLD = "#F4B400";
 
-export default function AdminLogin({ onLoginSuccess }) {
+export default function AdminLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
     setError("");
-
-    if (!email) {
-      setError("Enter admin email");
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
-      // Query admins collection
-      const q = query(
-        collection(db, "admins"),
-        where("email", "==", email),
-        where("status", "==", "active")
-      );
+      // Verify admin status directly from Firestore
+      const adminRef = doc(db, "admins", user.uid);
+      const adminSnap = await getDoc(adminRef);
 
-      const snap = await getDocs(q);
-
-      if (!snap.empty) {
-        // Save session
-        localStorage.setItem("adminEmail", email);
-        localStorage.setItem("adminLoggedIn", "true");
-
-        // Call callback to update App.js state
-        if (onLoginSuccess) onLoginSuccess();
-
-        // Redirect to admin dashboard
-        navigate("/admin/dashboard");
-      } else {
-        setError("Access denied. Not an admin.");
+      if (!adminSnap.exists()) {
+        setError("Access denied. Not an admin account.");
+        await signOut(auth); // Immediately boot unauthorized user out of Firebase
+        return;
       }
+
+      const adminData = adminSnap.data();
+      if (adminData.status !== "active") {
+        setError("Access denied. Admin account is inactive.");
+        await signOut(auth); // Boot inactive admin out
+        return;
+      }
+
+      // Success! AuthContext will detect this and handle the state change globally
+      navigate("/admin/dashboard");
+
     } catch (err) {
       console.error(err);
-      setError("Login failed");
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -81,14 +69,9 @@ export default function AdminLogin({ onLoginSuccess }) {
       >
         <Typography
           variant="h5"
-          sx={{
-            color: GOLD,
-            fontWeight: 700,
-            mb: 3,
-            textAlign: "center"
-          }}
+          sx={{ color: GOLD, fontWeight: 700, mb: 3, textAlign: "center" }}
         >
-          Admin Login
+          Secure Admin Login
         </Typography>
 
         {error && (
@@ -96,19 +79,6 @@ export default function AdminLogin({ onLoginSuccess }) {
             {error}
           </Alert>
         )}
-
-        <TextField
-          fullWidth
-          label="Admin Email"
-          variant="outlined"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          sx={{
-            mb: 3,
-            input: { color: "#fff" },
-            label: { color: "#aaa" }
-          }}
-        />
 
         <Button
           fullWidth
@@ -119,10 +89,10 @@ export default function AdminLogin({ onLoginSuccess }) {
             background: GOLD,
             color: "#000",
             fontWeight: 700,
-            "&:hover": { background: "#d9a200" }
+            "&:hover": { background: "#d39e00" }
           }}
         >
-          {loading ? "Checking..." : "Login"}
+          {loading ? "Checking..." : "Login with Google"}
         </Button>
       </Paper>
     </Box>

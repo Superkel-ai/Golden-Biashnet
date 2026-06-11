@@ -29,8 +29,8 @@ const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/logo.png",
-  "/favicon.ico"
+  "/biash512.jpeg",
+  "/biash192.png"
 ];
 
 

@@ -75,6 +75,7 @@ const categories = [
   "Home",
   "Shoes",
   "Jewelry",
+  "Watches",
   "Foods",
   "Snacks",
   "Vehicles",
@@ -350,7 +351,7 @@ ${title} available in ${condition.toLowerCase()} condition.
 ✔ Affordable pricing
 ✔ Fast response from seller
 
-Contact seller for more details.
+Contact Biashnet Admin for more details.
 `;
 
     setDescription(text);
@@ -366,6 +367,16 @@ Contact seller for more details.
     try {
 
       setLoading(true);
+
+      if (!auth.currentUser) {
+
+  alert("Please login first");
+
+  setLoading(false);
+
+  return;
+
+}
 
       const userRef = doc(
         db,
@@ -457,6 +468,14 @@ Contact seller for more details.
       CREATE PRODUCT
       ===================================================== */
 
+      if (!auth.currentUser) {
+
+  alert("Please login first");
+
+  return;
+
+}
+
       const productRef = await addDoc(
         collection(db, "products"),
         {
@@ -479,9 +498,11 @@ Contact seller for more details.
 
           images: uploadedImages,
 
-          sellerId: auth.currentUser.uid,
+          userId: auth.currentUser.uid,
 
           sellerName: seller.name || "",
+          sellerVerified: true,
+        sellerBadge: "golden",
 
           sellerPhoto:
             seller.photoURL || "",
@@ -494,7 +515,17 @@ Contact seller for more details.
 
           seoSlug: generateSlug(),
 
-          promotion,
+          promotion: promotion || {
+
+  promoted: false,
+
+  plan: null,
+
+  promotedAt: null,
+
+},
+
+    
 
           views: 0,
           rating: 0,
@@ -611,7 +642,7 @@ Contact seller for more details.
 
       console.error(err);
 
-      setError("Upload failed");
+      setError("Upload failed - please try again");
 
       setLoading(false);
 

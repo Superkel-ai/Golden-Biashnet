@@ -96,16 +96,22 @@ export default function AdminAppLayout({ children }) {
   },
 
   {
+    text: "Flash Sales",
+    icon: <ShoppingCart />,
+    path: "/admin/flash"
+  },
+
+  {
     text: "Cart Monitor",
     icon: <MonitorHeart />,
     path: "/admin/cart"
   },
 
-  // ================= POSTS =================
+  // ================= VERIFY =================
   {
-    text: "Posts",
-    icon: <PostAdd />,
-    path: "/admin/posts"
+    text: "Verify",
+    icon: <AdminPanelSettings />,
+    path: "/admin/verify"
   },
 
   // ================= MARKETPLACE =================

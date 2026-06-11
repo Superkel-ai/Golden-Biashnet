@@ -65,51 +65,48 @@ const Login = () => {
 
     try {
       setLoading(true);
-
-      await signInWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      );
-
+      await signInWithEmailAndPassword(auth, form.email, form.password);
       navigate("/");
-
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   // Google login
   const handleGoogleLogin = async () => {
     setError("");
+    setSuccess("");
 
     try {
       setLoading(true);
-
       await signInWithPopup(auth, provider);
-
       navigate("/");
-
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   // Forgot password
   const handleForgotPassword = async () => {
+    setError("");
+    setSuccess("");
+
     if (!form.email) {
       return setError("Enter your email first");
     }
 
     try {
+      setLoading(true);
       await sendPasswordResetEmail(auth, form.email);
-      setSuccess("Password reset email sent");
+      setSuccess("Password reset email sent!");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,7 +120,6 @@ const Login = () => {
       }}
     >
       <Container maxWidth="sm">
-
         <Paper
           elevation={3}
           sx={{
@@ -133,7 +129,6 @@ const Login = () => {
             color: "#fff"
           }}
         >
-
           {/* Title */}
           <Typography
             variant="h4"
@@ -144,21 +139,21 @@ const Login = () => {
             Login
           </Typography>
 
-          {/* Error */}
+          {/* Error Message */}
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
-          {/* Success */}
+          {/* Success Message */}
           {success && (
             <Alert severity="success" sx={{ mb: 2 }}>
               {success}
             </Alert>
           )}
 
-          {/* Email */}
+          {/* Email Input */}
           <TextField
             fullWidth
             label="Email"
@@ -167,17 +162,16 @@ const Login = () => {
             onChange={handleChange}
             margin="normal"
             variant="outlined"
+            disabled={loading}
             InputProps={{
-              sx: {
-                color: "#fff"
-              }
+              sx: { color: "#fff" }
             }}
             InputLabelProps={{
               sx: { color: "#aaa" }
             }}
           />
 
-          {/* Password */}
+          {/* Password Input */}
           <TextField
             fullWidth
             label="Password"
@@ -187,15 +181,12 @@ const Login = () => {
             onChange={handleChange}
             margin="normal"
             variant="outlined"
+            disabled={loading}
             InputProps={{
               sx: { color: "#fff" },
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton
-                    onClick={() =>
-                      setShowPassword(!showPassword)
-                    }
-                  >
+                  <IconButton onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? (
                       <VisibilityOff sx={{ color: "#fff" }} />
                     ) : (
@@ -216,7 +207,8 @@ const Login = () => {
               component="button"
               variant="body2"
               onClick={handleForgotPassword}
-              sx={{ color: "#F4B400" }}
+              disabled={loading}
+              sx={{ color: "#F4B400", textDecoration: "none" }}
             >
               Forgot password?
             </Link>
@@ -239,15 +231,11 @@ const Login = () => {
               }
             }}
           >
-            {loading ? (
-              <CircularProgress size={24} />
-            ) : (
-              "Login"
-            )}
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Login"}
           </Button>
 
           {/* Divider */}
-          <Divider sx={{ my: 3, color: "#666" }}>
+          <Divider sx={{ my: 3, "&::before, &::after": { borderColor: "#333" }, color: "#666" }}>
             OR
           </Divider>
 
@@ -263,29 +251,28 @@ const Login = () => {
               borderColor: "#444",
               height: 50,
               "&:hover": {
-                borderColor: "#F4B400"
+                borderColor: "#F4B400",
+                background: "rgba(244, 180, 0, 0.08)"
               }
             }}
           >
             Continue with Google
           </Button>
 
-          {/* Signup */}
+          {/* Signup Navigation */}
           <Box textAlign="center" mt={3}>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: "#aaa" }}>
               New user?{" "}
               <Link
                 component="button"
                 onClick={() => navigate("/signup")}
-                sx={{ color: "#F4B400" }}
+                sx={{ color: "#F4B400", fontWeight: "bold", textDecoration: "none" }}
               >
                 Create Account
               </Link>
             </Typography>
           </Box>
-
         </Paper>
-
       </Container>
     </Box>
   );

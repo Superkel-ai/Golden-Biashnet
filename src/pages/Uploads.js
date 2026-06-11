@@ -26,6 +26,8 @@ import { db, auth } from "../services/firebase";
 import {
   collection,
   addDoc,
+  doc,
+  getDoc,
   serverTimestamp
 } from "firebase/firestore";
 
@@ -44,6 +46,11 @@ export default function Uploads() {
   // =============================
   // STATE
   // =============================
+  const [checkingVerification, setCheckingVerification] = useState(true);
+
+const [verifiedUser, setVerifiedUsers] = useState(false);
+
+const [UserPlan, setUserPlan] = useState(null);
 
   const [type, setType] = useState("product");
 
@@ -82,6 +89,59 @@ useEffect(() => {
 }, [user]);
 
 const isLoggedIn = !!user;
+//verify
+useEffect(() => {
+
+  const checkVerification = async () => {
+
+    if (!user) {
+      setCheckingVerification(false);
+      return;
+    }
+
+    try {
+
+      const verifyRef = doc(
+        db,
+        "verifiedUsers",
+        user.uid
+      );
+
+      const verifySnap = await getDoc(verifyRef);
+
+      if (
+        verifySnap.exists() &&
+        verifySnap.data().status === "approved"
+      ) {
+
+        setVerifiedUsers(true);
+
+        setUserPlan(
+          verifySnap.data().plan
+        );
+
+      } else {
+
+        setVerifiedUsers(false);
+
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+    } finally {
+
+      setCheckingVerification(false);
+
+    }
+
+  };
+
+  checkVerification();
+
+}, [user]);
+
 
 
   // HANDLE TYPE CHANGE
@@ -304,6 +364,101 @@ const isLoggedIn = !!user;
 
   };
 
+  /* =========================================
+VERIFY FIRST
+========================================= */
+
+if (checkingVerification) {
+
+  return (
+
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: "#000",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center"
+      }}
+    >
+      <CircularProgress />
+
+    </Box>
+
+  );
+
+}
+
+if (user && !verifiedUser) {
+
+  return (
+
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: "#000",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        p: 2
+      }}
+    >
+
+      <Paper
+        sx={{
+          background: "#111",
+          p: 3,
+          maxWidth: 420,
+          borderRadius: 3,
+          border: "1px solid #333"
+        }}
+      >
+
+        <Typography
+          sx={{
+            color: GOLD,
+            fontWeight: "bold",
+            fontSize: 22,
+            mb: 2
+          }}
+        >
+          Seller Verification Required
+        </Typography>
+
+        <Typography
+          sx={{
+            color: "#ccc",
+            mb: 3,
+            fontSize: 14
+          }}
+        >
+          To keep Golden Biashnet secure,
+          all sellers must verify first
+          before posting products,
+          houses, services or adverts.
+        </Typography>
+
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={() => navigate("/verify")}
+          sx={{
+            background: GOLD,
+            color: "#000",
+            fontWeight: "bold",
+            height: 48
+          }}
+        >
+          Verify Account
+        </Button>
+
+      </Paper>
+
+    </Box>
+
+  );
+
+}
 
 
   // =============================

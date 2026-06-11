@@ -177,8 +177,10 @@ export default function EventForm() {
         salary,
 
         
-        organizerId: auth.currentUser?.uid || null,
-        organizerName: auth.currentUser?.displayName || null,
+        userId: auth.currentUser?.uid || null,
+        userName: auth.currentUser?.displayName || null,
+        sellerVerified: true,
+        sellerBadge: "golden",
 
         promoted: promotionPlan !== "none",
         promotionPlan,
@@ -215,6 +217,10 @@ advertType:advertType,
 
 location:location,
 locationLower:location.toLowerCase(),
+
+sellerId: auth.currentUser.uid,
+
+
 
 category:"adverts",
 

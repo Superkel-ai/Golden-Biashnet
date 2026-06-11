@@ -1,151 +1,75 @@
-import React, { useEffect, useState, useRef } from "react";
+// src/pages/Home.js
+
+import React, { useEffect, useState, useMemo, lazy, Suspense } from "react";
+
 import {
   Box,
   Typography,
   CircularProgress
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  limit,
+  orderBy
+} from "firebase/firestore";
+
 import { db } from "../services/firebase";
 
+import SearchBar from "../components/home/SearchBar";
+import HeroSlider from "../components/home/HeroSlider";
+import CategoryScroller from "../components/home/CategoryScroller";
+import ProductRow from "../components/home/ProductRow";
+import RecommendedGrid from "../components/home/RecommendedGrid";
+import InfiniteProducts from "../components/home/InfiniteProducts";
+
 const GOLD = "#F4B400";
-const BG = "#000";
-const CARD = "#000000";
 
-/* ================= CARD ================= */
-const Card = ({ item, type }) => {
-  const navigate = useNavigate();
+const FlashSaleBanner = lazy(() =>
+  import("../components/home/FlashSaleBanner")
+);
 
-  const image =
-    item.images?.[0]?.thumb ||
-    item.images?.[0]?.full ||
-    item.images?.[0];
+/* ================= NORMALIZE ================= */
+const normalize = (text) =>
+  (text || "")
+    .toLowerCase()
+    .trim();
 
-  return (
-    <Box
-      onClick={() => navigate(`/post/${type}/${item.id}`)}
-      sx={{
-        minWidth: 140,
-        background: CARD,
-        borderRadius: 2,
-        overflow: "hidden",
-        cursor: "pointer"
-      }}
-    >
-      <Box
-        component="img"
-        src={image}
-        sx={{
-          width: "100%",
-          height: 120,
-          objectFit: "cover"
-        }}
-      />
+/* ================= CAPITALIZE ================= */
+const capitalize = (text) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 
-      <Box p={1}>
-        <Typography sx={{ color: "#fff", fontSize: 12 }} noWrap>
-          {item.title}
-        </Typography>
+export default function HomePage() {
 
-        {item.price && (
-          <Typography sx={{ color: GOLD, fontSize: 12 }}>
-            KES {Number(item.price).toLocaleString()}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-};
-
-/* ================= SECTION ================= */
-const Section = ({ title, data, type }) => {
-  const scrollRef = useRef();
-
-  // 🔥 AUTO SCROLL EFFECT
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    let scrollAmount = 0;
-
-    const interval = setInterval(() => {
-      if (scrollAmount >= el.scrollWidth - el.clientWidth) {
-        scrollAmount = 0;
-      } else {
-        scrollAmount += 1;
-      }
-
-      el.scrollTo({
-        left: scrollAmount,
-        behavior: "smooth"
-      });
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <Box mt={3}>
-      <Typography sx={{ color: GOLD, px: 1, mb: 1 }}>
-        {title}
-      </Typography>
-
-      <Box
-        ref={scrollRef}
-        sx={{
-          display: "flex",
-          gap: 1,
-          overflowX: "auto",
-          px: 1,
-          "&::-webkit-scrollbar": { display: "none" }
-        }}
-      >
-        {data.map((item) => (
-          <Card key={item.id} item={item} type={type} />
-        ))}
-      </Box>
-    </Box>
-  );
-};
-
-/* ================= MAIN ================= */
-export default function Home() {
   const [products, setProducts] = useState([]);
-  const [services, setServices] = useState([]);
-  const [houses, setHouses] = useState([]);
-  const [adverts, setAdverts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  /* ================= FETCH ================= */
+  /* ================= FETCH PRODUCTS ================= */
   useEffect(() => {
-    const fetchData = async () => {
+
+    const loadProducts = async () => {
+
       try {
-        const getData = async (collectionName) => {
-          const q = query(
-            collection(db, collectionName),
-            orderBy("createdAt", "desc"),
-            limit(10)
-          );
 
-          const snap = await getDocs(q);
+        const q = query(
+          collection(db, "products"),
+          where("status", "in", ["active", "approved"]),
+          orderBy("createdAt", "desc"), limit (200)
+        );
 
-          return snap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-        };
+        const snap = await getDocs(q);
 
-        const [p, s, h, a] = await Promise.all([
-          getData("products"),
-          getData("services"),
-          getData("houses"),
-          getData("adverts")
-        ]);
+        const data = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
 
-        setProducts(p);
-        setServices(s);
-        setHouses(h);
-        setAdverts(a);
+        setProducts(data);
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -153,15 +77,85 @@ export default function Home() {
       }
     };
 
-    fetchData();
+    loadProducts();
+
   }, []);
+
+  /* ================= GROUP BY CATEGORY (🔥 FIX) ================= */
+  const categoryMap = useMemo(() => {
+
+    const map = {};
+
+    products.forEach((p) => {
+
+      const cat = normalize(p.category || "Other");
+
+      if (!map[cat]) {
+        map[cat] = [];
+      }
+
+      map[cat].push(p);
+
+    });
+
+    return map;
+
+  }, [products]);
+
+  /* ================= ACTIVE CATEGORIES ================= */
+  const activeCategories = useMemo(() => {
+    return Object.keys(categoryMap);
+  }, [categoryMap]);
+
+  /* ================= FEATURED SECTIONS ================= */
+
+  const promotedProducts = useMemo(() =>
+    products.filter(p => p.promotion?.promoted === true).slice(0, 20),
+    [products]
+  );
+  
+  const latestProducts = useMemo(() =>
+    [...products]
+      .sort(
+        (a, b) =>
+          (b.createdAt?.seconds || 0) -
+          (a.createdAt?.seconds || 0)
+      )
+      .slice(0, 20),
+    [products]
+  );
+
+  const recommendedProducts = useMemo(() => {
+
+    return [...products]
+      .sort((a, b) => {
+
+        const scoreA =
+          (a.priorityScore || 0) +
+          (a.promotion?.promoted === true ? 100 : 0) +
+          (a.sellerVerified ? 50 : 0) +
+          ((a.views || 0) * 0.1);
+
+        const scoreB =
+          (b.priorityScore || 0) +
+          (b.isPromoted ? 100 : 0) +
+          (b.sellerVerified ? 50 : 0) +
+          ((b.views || 0) * 0.1);
+
+        return scoreB - scoreA;
+
+      })
+      .slice(0, 8);
+
+  }, [products]);
 
   /* ================= LOADING ================= */
   if (loading) {
     return (
       <Box
         sx={{
-          minHeight: "60vh",
+          minHeight: "100vh",
+          background: "#000",
           display: "flex",
           justifyContent: "center",
           alignItems: "center"
@@ -173,51 +167,46 @@ export default function Home() {
   }
 
   return (
-    <Box sx={{ background: BG, pb: 4 }}>
-      
-      {/* 🔥 HEADER */}
-      <Box px={1.5} pt={2}>
-        <Typography sx={{ color: GOLD, fontWeight: "bold", fontSize: 18 }}>
-          Golden Biashnet
-        </Typography>
+    <Box sx={{ background: "#000", minHeight: "100vh", pb: 10 }}>
 
-        <Typography sx={{ color: "#aaa", fontSize: 12 }}>
-          Discover. Connect. Trade.
-        </Typography>
-      </Box>
+      {/* SEARCH */}
+      <SearchBar products={products} />
 
-      {/* 🔥 CATEGORIES (PLACEHOLDER) */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1,
-          overflowX: "auto",
-          px: 1,
-          py: 2
-        }}
-      >
-        {["Electronics", "Fashion", "Food", "Services"].map((cat) => (
-          <Box
-            key={cat}
-            sx={{
-              px: 2,
-              py: 1,
-              background: "#222",
-              borderRadius: 2,
-              color: "#fff",
-              fontSize: 12
-            }}
-          >
-            {cat}
-          </Box>
-        ))}
-      </Box>
+      {/* HERO */}
+      <HeroSlider />
 
-      {/* 🔥 SECTIONS */}
-      <Section title="🔥 Trending Products" data={products} type="product" />
-      <Section title="🛠 Popular Services" data={services} type="service" />
-      <Section title="🏠 Available Houses" data={houses} type="house" />
-      <Section title="📢 Sponsored Ads" data={adverts} type="advert" />
+      {/* CATEGORY SCROLLER (NOW DYNAMIC) */}
+      <CategoryScroller
+        selected={selectedCategory}
+        setSelected={setSelectedCategory}
+        categories={["All", ...activeCategories.map(capitalize)]}
+      />
+
+      {/* FLASH BANNER */}
+     <Suspense fallback={null}>
+  <FlashSaleBanner />
+</Suspense>
+
+      {/* PROMOTED */}
+      <ProductRow title="⭐ Promoted Products" products={promotedProducts} />
+
+      {/* LATEST */}
+      <ProductRow title="🆕 Latest Arrivals" products={latestProducts} />
+
+      {/* 🔥 DYNAMIC CATEGORY RENDERING (IMPORTANT FIX) */}
+      {Object.entries(categoryMap).map(([category, items]) => (
+        <ProductRow
+          key={category}
+          title={`📦 ${capitalize(category)}`}
+          products={items.slice(0, 20)}
+        />
+      ))}
+
+      {/* RECOMMENDED */}
+      <RecommendedGrid products={recommendedProducts} />
+
+      {/* ENDLESS FEED */}
+      <InfiniteProducts />
 
     </Box>
   );

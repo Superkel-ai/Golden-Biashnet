@@ -198,7 +198,10 @@ export default function ServiceForm() {
 
         images: imageUrls,
 
-        providerId: auth.currentUser?.uid || null,
+        userId: auth.currentUser?.uid || null,
+        sellerVerified: true,
+        sellerBadge: "golden",
+
 
         createdAt: serverTimestamp(),
 
@@ -235,7 +238,7 @@ providerName:name,
 
 category:category,
 subCategory:subCategory,
-
+sellerId: auth.currentUser.uid,
 location:location,
 locationLower:location.toLowerCase(),
 

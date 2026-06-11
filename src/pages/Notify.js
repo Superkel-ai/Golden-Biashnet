@@ -89,7 +89,7 @@ export default function NotificationsPage() {
     if (!user) return;
 
     const q = query(
-      collection(db, "notifications"),
+      collection(db, "notif"),
       orderBy("createdAt", "desc")
     );
 

@@ -102,11 +102,20 @@ export default function Welcome() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [promoted,setPromoted]=useState([]);
-  const [latest,setLatest]=useState([]);
-  const [topSellers,setTopSellers]=useState([]);
-  const [deferredPrompt, setDeferredPrompt] =
-    useState(null);
+  const promotedRef = useRef(null);
+  const [latestProducts,setLatestProducts]=useState([]);
+  
+const [deferredPrompt, setDeferredPrompt] =
+  useState(null);
 
+const [installing, setInstalling] =
+  useState(false);
+
+const [isInstalled, setIsInstalled] =
+  useState(false);
+
+const [installSupported, setInstallSupported] =
+  useState(false);
   const scrollRef = useRef(null);
 
   /* =========================================================
@@ -186,242 +195,266 @@ SHUFFLE
   };
 
   /* =========================================================
-FETCH POSTS
+FETCH POSTS (UPGRADED WITH ERROR HANDLING)
 ========================================================= */
 
-  useEffect(() => {
-    setLoading(true);
+useEffect(() => {
+  setLoading(true);
 
-    const collectionsList = [
-      "products",
-      "services",
-      "houses",
-      "adverts",
-    ];
+  const collectionsList = ["products", "services", "houses", "adverts"];
+  let allData = [];
 
-    let allData = [];
-
-    const unsubscribers = collectionsList.map(
-      (col) => {
-        const q = query(
-          collection(db, col),
-          where("status", "in", [
-            "active",
-            "approved",
-          ]),
-          orderBy("createdAt", "desc"),
-          limit(10)
-        );
-
-        return onSnapshot(q, (snap) => {
-          const data = snap.docs.map((doc) => ({
-            id: doc.id,
-            type: col,
-            ...doc.data(),
-          }));
-
-          allData = [
-            ...allData.filter(
-              (d) => d.type !== col
-            ),
-            ...data,
-          ];
-
-          const sorted = allData.sort(
-            (a, b) =>
-              b.createdAt?.seconds -
-              a.createdAt?.seconds
-          );
-
-          const shuffled =
-            shuffleArray(sorted);
-
-          setPosts(shuffled.slice(0, 20));
-
-          setLoading(false);
-        });
-      }
+  const unsubscribers = collectionsList.map((col) => {
+    const q = query(
+      collection(db, col),
+      where("status", "in", ["active", "approved"]),
+      orderBy("createdAt", "desc"),
+      limit(10)
     );
 
-    return () =>
-      unsubscribers.forEach((unsub) =>
-        unsub()
-      );
-  }, []);
+    // Added error handling block to isolate index issues
+    return onSnapshot(q, 
+      (snap) => {
+        const data = snap.docs.map((doc) => ({
+          id: doc.id,
+          type: col,
+          ...doc.data(),
+        }));
 
-  /* =========================================================
-PROMOTED PRODUCTS
-========================================================= */
-useEffect(()=>{
+        allData = [
+          ...allData.filter((d) => d.type !== col),
+          ...data,
+        ];
 
- const q=query(
+        const sorted = allData.sort(
+          (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+        );
 
-  collection(db,"products"),
-
-  where("promotion.promoted","==",true),
-
-  where(
-   "status",
-   "in",
-   ["active","approved"]
-  ),
-
-  orderBy("createdAt","desc"),
-
-  limit(20)
-
- );
-
- const unsub=onSnapshot(q,(snap)=>{
-
-  const data=snap.docs.map(doc=>({
-
-   id:doc.id,
-
-   ...doc.data()
-
-  }));
-
-  /* =====================================
-     SHUFFLE FOR DYNAMIC FEED
-  ===================================== */
-
-  const shuffled=data
-   .map(item=>({
-    sort:Math.random(),
-    value:item
-   }))
-   .sort((a,b)=>a.sort-b.sort)
-   .map(item=>item.value);
-
-  setPromoted(shuffled);
-
- });
-
- return()=>unsub();
-
-},[]);
-
-/* =========================================================
-LATEST PRODUCTS
-Only products approved for latest visibility
-========================================================= */
-
-const [latestProducts,setLatestProducts]=
- useState([]);
-
-/* =========================================================
-FETCH LATEST PRODUCTS
-========================================================= */
-
-useEffect(()=>{
-
- const q=query(
-
-  collection(db,"products"),
-
-  where(
-   "status",
-   "in",
-   ["active","approved"]
-  ),
-
-  where(
-   "latest.active",
-   "==",
-   true
-  ),
-
-  orderBy("createdAt","desc"),
-
-  limit(20)
-
- );
-
- const unsub=onSnapshot(q,(snap)=>{
-
-  /* =====================================
-     FORMAT DATA
-  ===================================== */
-
-  const data=snap.docs.map(doc=>({
-
-   id:doc.id,
-
-   ...doc.data()
-
-  }));
-
-  /* =====================================
-     REMOVE EXPIRED PRODUCTS
-  ===================================== */
-
-  const filtered=data.filter(item=>{
-
-   if(!item?.latest?.expiresAt)
-    return true;
-
-   const expiry=
-    item.latest.expiresAt.seconds
-    * 1000;
-
-   return expiry > Date.now();
-
+        const shuffled = shuffleArray(sorted);
+        setPosts(shuffled.slice(0, 20));
+        setLoading(false);
+      },
+      (error) => {
+        console.error(`Index missing or permission denied for collection: ${col}`, error);
+        // This will print the exact link you need to click to fix the index!
+      }
+    );
   });
 
-  /* =====================================
-     SHUFFLE PRODUCTS
-  ===================================== */
-
-  const shuffled=filtered
-   .map(item=>({
-
-    sort:Math.random(),
-
-    value:item
-
-   }))
-
-   .sort((a,b)=>
-    a.sort-b.sort
-   )
-
-   .map(item=>item.value);
-
-  setLatestProducts(shuffled);
-
- });
-
- return()=>unsub();
-
-},[]);
+  return () => unsubscribers.forEach((unsub) => unsub());
+}, []);
 
 /* =========================================================
-TOP SELLERS
+PROMOTED PRODUCTS (UPGRADED)
 ========================================================= */
-
-useEffect(()=>{
-
- const q=query(
-  collection(db,"users"),
-  where("sellerVerified","==",true),
-  limit(12)
- );
-
- const unsub=onSnapshot(q,snap=>{
-
-  setTopSellers(
-   snap.docs.map(doc=>({
-    id:doc.id,
-    ...doc.data()
-   }))
+useEffect(() => {
+  const q = query(
+    collection(db, "products"),
+    where("promotion.promoted", "==", true),
+    where("status", "in", ["active", "approved"]),
+    orderBy("createdAt", "desc"),
+    limit(20)
   );
 
- });
+  const unsub = onSnapshot(q, 
+    (snap) => {
+      const data = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
- return()=>unsub();
+      const shuffled = data
+        .map(item => ({ sort: Math.random(), value: item }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(item => item.value);
 
-},[]);
+      setPromoted(shuffled);
+    },
+    (error) => {
+      console.error("Index missing or permission denied for Promoted Products:", error);
+    }
+  );
+
+  return () => unsub();
+}, []);
+
+/* =========================================================
+FETCH LATEST PRODUCTS (UPGRADED)
+========================================================= */
+useEffect(() => {
+  const q = query(
+    collection(db, "products"),
+    where("status", "in", ["active", "approved"]),
+    where("latest.active", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(20)
+  );
+
+  const unsub = onSnapshot(
+    q,
+    (snap) => {
+      const data = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      const filtered = data.filter((item) => {
+        if (!item?.latest?.expiresAt) return true;
+
+        const expiry = item.latest.expiresAt.seconds * 1000;
+        return expiry > Date.now();
+      });
+
+      const shuffled = filtered
+        .map((item) => ({ sort: Math.random(), value: item }))
+        .sort((a, b) => a.sort - b.sort)
+        .map((item) => item.value);
+
+      setLatestProducts(shuffled);
+    },
+    (error) => {
+      console.error("Index missing or permission denied for Latest Products:", error);
+    }
+  );
+
+  return () => unsub();
+}, []);
+
+/* =========================================================
+AUTO HORIZONTAL SCROLL
+========================================================= */
+
+useEffect(() => {
+
+  const container = promotedRef.current;
+
+  if (!container) return;
+
+  let isUserInteracting = false;
+
+  let direction = 1;
+  // 1 = right
+  // -1 = left
+
+  /* =====================================================
+     USER INTERACTION
+  ===================================================== */
+
+  const startInteraction = () => {
+
+    isUserInteracting = true;
+
+  };
+
+  const stopInteraction = () => {
+
+    setTimeout(() => {
+
+      isUserInteracting = false;
+
+    }, 1800);
+
+  };
+
+  container.addEventListener(
+    "touchstart",
+    startInteraction
+  );
+
+  container.addEventListener(
+    "mousedown",
+    startInteraction
+  );
+
+  container.addEventListener(
+    "touchend",
+    stopInteraction
+  );
+
+  container.addEventListener(
+    "mouseup",
+    stopInteraction
+  );
+
+  /* =====================================================
+     AUTO MOVE
+  ===================================================== */
+
+  const interval = setInterval(() => {
+
+    if (isUserInteracting) return;
+
+    /* ===============================================
+       SPEED
+    =============================================== */
+
+    container.scrollLeft += direction * 2.2;
+
+    /* ===============================================
+       REACH END
+    =============================================== */
+
+    const reachedEnd =
+
+      container.scrollLeft + container.clientWidth >=
+      container.scrollWidth - 3;
+
+    /* ===============================================
+       REACH START
+    =============================================== */
+
+    const reachedStart =
+      container.scrollLeft <= 0;
+
+    /* ===============================================
+       CHANGE DIRECTION
+    =============================================== */
+
+    if (reachedEnd) {
+
+      direction = -1;
+
+    }
+
+    if (reachedStart) {
+
+      direction = 1;
+
+    }
+
+  }, 14);
+
+  /* =====================================================
+     CLEANUP
+  ===================================================== */
+
+  return () => {
+
+    clearInterval(interval);
+
+    container.removeEventListener(
+      "touchstart",
+      startInteraction
+    );
+
+    container.removeEventListener(
+      "mousedown",
+      startInteraction
+    );
+
+    container.removeEventListener(
+      "touchend",
+      stopInteraction
+    );
+
+    container.removeEventListener(
+      "mouseup",
+      stopInteraction
+    );
+
+  };
+
+}, []);
 
   /* =========================================================
 AUTO SCROLL
@@ -464,44 +497,137 @@ AUTO SCROLL
   /* =========================================================
 PWA INSTALL
 ========================================================= */
+useEffect(() => {
 
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
+  /* =====================================
+     CHECK IF ALREADY INSTALLED
+  ===================================== */
 
-    window.addEventListener(
+  const installed =
+    window.matchMedia(
+      "(display-mode: standalone)"
+    ).matches ||
+    window.navigator.standalone;
+
+  if (installed) {
+    setIsInstalled(true);
+  }
+
+  /* =====================================
+     INSTALL PROMPT
+  ===================================== */
+
+  const handler = (e) => {
+
+    e.preventDefault();
+
+    setDeferredPrompt(e);
+
+    setInstallSupported(true);
+
+  };
+
+  window.addEventListener(
+    "beforeinstallprompt",
+    handler
+  );
+
+  /* =====================================
+     AFTER INSTALL
+  ===================================== */
+
+  window.addEventListener(
+    "appinstalled",
+    () => {
+
+      setIsInstalled(true);
+
+      setDeferredPrompt(null);
+
+    }
+  );
+
+  return () => {
+
+    window.removeEventListener(
       "beforeinstallprompt",
       handler
     );
 
-    return () =>
-      window.removeEventListener(
-        "beforeinstallprompt",
-        handler
-      );
-  }, []);
+  };
 
+}, []);
   /* =========================================================
 INSTALL APP
 ========================================================= */
 
   const handleInstallApp = async () => {
-    if (deferredPrompt) {
+
+  /* =====================================
+     ALREADY INSTALLED
+  ===================================== */
+
+  if (isInstalled) {
+
+    alert("Golden BiashNet is already installed.");
+
+    return;
+
+  }
+
+  /* =====================================
+     INSTALL SUPPORTED
+  ===================================== */
+
+  if (deferredPrompt) {
+
+    try {
+
+      setInstalling(true);
+
       deferredPrompt.prompt();
 
-      await deferredPrompt.userChoice;
+      const choice =
+        await deferredPrompt.userChoice;
+
+      console.log(choice);
+
+      if (
+        choice.outcome === "accepted"
+      ) {
+
+        console.log(
+          "User installed app"
+        );
+
+      }
 
       setDeferredPrompt(null);
-    } else {
-      window.open(
-        "https://golden-biashnet.web.app",
-        "_blank"
-      );
-    }
-  };
 
+    } catch (err) {
+
+      console.log(err);
+
+    } finally {
+
+      setInstalling(false);
+
+    }
+
+    return;
+
+  }
+
+  /* =====================================
+     PLAY STORE FALLBACK
+  ===================================== */
+
+  window.open(
+    "https://play.google.com/store/apps/details?id=",
+    "_blank"
+  );
+
+};
   /* =========================================================
 SHARE
 ========================================================= */
@@ -698,14 +824,14 @@ Modern Marketplace Search Hero
 
       <Typography
         sx={{
-          color: "#fff",
+          color: "#f3bc08",
           fontWeight: 900,
-          fontSize: 18,
+          fontSize: 21,
           lineHeight: 1,
           letterSpacing: -.4,
         }}
       >
-        Golden Biashnet
+        WELCOME TO BIASHNET
       </Typography>
 
       <Typography
@@ -718,25 +844,6 @@ Modern Marketplace Search Hero
         Buy • Sell • Discover Opportunities
       </Typography>
 
-    </Box>
-
-    {/* LIVE BADGE */}
-
-    <Box
-      sx={{
-        px: 1.2,
-        py: 0.5,
-        borderRadius: 10,
-        background:
-          "linear-gradient(135deg,#fad60b,#ff9800)",
-        color: "#000",
-        fontSize: 10,
-        fontWeight: 900,
-        boxShadow:
-          "0 0 18px rgba(250,214,11,.25)",
-      }}
-    >
-      LIVE MARKET
     </Box>
 
   </Box>
@@ -878,7 +985,7 @@ Modern Marketplace Search Hero
     {
       title: "Phones",
       icon: "📱",
-      route: "/product",
+      route: "/InfiniteProducts",
       search: "phones",
     },
 
@@ -906,7 +1013,7 @@ Modern Marketplace Search Hero
     {
       title: "Fashion",
       icon: "👕",
-      route: "/product",
+      route: "/InifiniteProducts",
       search: "fashion",
     },
 
@@ -993,125 +1100,249 @@ Modern Marketplace Search Hero
   </Box>
 
 </Box>
+
 {/* =========================================================
 PROMOTED SECTION
 ========================================================= */}
 
 <Box sx={{ px: 2, mt: 2.5 }}>
 
-  <SectionHeader
-    title="Promoted"
-    subtitle="Boosted products & top deals"
-    onClick={() => navigate("/product")}
-  />
+  {/* =====================================================
+      HEADER
+  ===================================================== */}
 
   {/* =====================================================
-      PROMOTION BANNER
+      PROMOTION CTA
   ===================================================== */}
 
   <Box
+    onClick={() => navigate("/uploads")}
     sx={{
-      mt: 1.2,
-      mb: 1.5,
+
+      mt: 1.4,
+
+      mb: 1.6,
+
+      p: 1.5,
+
+      borderRadius: 5,
 
       background:
-        "linear-gradient(135deg,#F4B400,#ff9800)",
+        "linear-gradient(135deg,#171717,#101010)",
 
-      borderRadius: 4,
-
-      p: 1.3,
+      border:
+        "1px solid rgba(244,180,0,.15)",
 
       position: "relative",
 
       overflow: "hidden",
+
+      cursor: "pointer",
+
+      transition: ".25s",
+
+      "&:hover": {
+
+        border:
+          "1px solid rgba(244,180,0,.35)",
+
+        transform: "translateY(-2px)",
+
+      },
+
     }}
   >
 
     {/* Glow */}
+
     <Box
       sx={{
+
         position: "absolute",
-        right: -30,
-        top: -30,
-        width: 100,
-        height: 100,
+
+        right: -35,
+        top: -35,
+
+        width: 120,
+        height: 120,
+
         borderRadius: "50%",
-        background: "rgba(255,255,255,.15)",
+
+        background:
+          "rgba(244,180,0,.08)",
+
       }}
     />
 
-    <Typography
-      sx={{
-        color: "#000",
-        fontWeight: 900,
-        fontSize: 14,
-        lineHeight: 1.2,
-      }}
-    >
-      🚀 Promote & Reach More Customers
-    </Typography>
+    {/* TOP */}
 
-    <Typography
-      sx={{
-        color: "rgba(0,0,0,.8)",
-        fontSize: 10.5,
-        mt: 0.5,
-        maxWidth: "85%",
-      }}
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
     >
-      Cheap promotions designed for students & small businesses.
-    </Typography>
 
-    {/* Plans */}
+      <Box>
+
+        <Typography
+          sx={{
+            color: "#f5ca0cfff",
+            fontSize: 18,
+            fontWeight: 1000,
+            lineHeight: 1.2,
+          }}
+        >
+       Promote Your Products
+        </Typography>
+
+      </Box>
+
+      {/* MINI BADGE */}
+
+      <Box
+        sx={{
+
+          px: 1,
+          py: 0.7,
+
+          borderRadius: 3,
+
+          background:
+            "rgb(5, 4, 0)",
+
+          border:
+            "1px solid rgba(112, 252, 57, 0.49)",
+
+        }}
+      >
+
+        <Typography
+          sx={{
+            color: "#F4B400",
+            fontSize: 9,
+            fontWeight: 900,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Affordable
+        </Typography>
+
+      </Box>
+
+    </Stack>
+
+    {/* BENEFITS */}
+
     <Stack
       direction="row"
       spacing={1}
-      mt={1.2}
+      mt={1.3}
       flexWrap="wrap"
     >
 
       {[
-        {
-          label: "Daily",
-          price: "KES 50",
-        },
-        {
-          label: "Weekly",
-          price: "KES 250",
-        },
-        {
-          label: "Monthly",
-          price: "KES 800",
-        },
-      ].map((p, i) => (
+        "More visibility",
+        "Reach nearby buyers",
+        "Boost trust",
+      ].map((item) => (
 
         <Box
-          key={i}
+          key={item}
           sx={{
-            background: "rgba(0,0,0,.12)",
+
             px: 1,
-            py: 0.7,
-            borderRadius: 2,
-            minWidth: 72,
-            backdropFilter: "blur(5px)",
+            py: 0.5,
+
+            borderRadius: 10,
+
+            background:
+              "rgba(255,255,255,.04)",
+
+            border:
+              "1px solid rgba(255,255,255,.05)",
+
           }}
         >
 
           <Typography
             sx={{
+              color: "#ddd",
               fontSize: 9,
-              color: "#111",
               fontWeight: 700,
             }}
           >
-            {p.label}
+            ✓ {item}
+          </Typography>
+
+        </Box>
+
+      ))}
+
+    </Stack>
+
+    {/* PLANS */}
+
+    <Stack
+      direction="row"
+      spacing={1}
+      mt={1.4}
+    >
+
+      {[
+        {
+          name: "Daily",
+          price: "KES 50",
+        },
+
+        {
+          name: "Weekly",
+          price: "KES 250",
+        },
+
+        {
+          name: "Monthly",
+          price: "KES 800",
+        },
+
+      ].map((p) => (
+
+        <Box
+          key={p.name}
+          sx={{
+
+            flex: 1,
+
+            p: 0.7,
+
+            borderRadius: 2,
+
+            background:
+              "rgba(255,255,255,.03)",
+
+            border:
+              "1px solid rgba(255,255,255,.05)",
+
+            textAlign: "center",
+
+          }}
+        >
+
+          <Typography
+            sx={{
+              color: "#888",
+              fontSize: 8.5,
+              fontWeight: 700,
+            }}
+          >
+            {p.name}
           </Typography>
 
           <Typography
             sx={{
+              color: "#F4B400",
               fontSize: 11,
-              color: "#000",
               fontWeight: 900,
+              mt: 0.2,
             }}
           >
             {p.price}
@@ -1122,423 +1353,360 @@ PROMOTED SECTION
       ))}
 
     </Stack>
+
   </Box>
 
   {/* =====================================================
-      WRAPPER
+      PRODUCTS ROW
   ===================================================== */}
 
   <Box
+    ref={promotedRef}
     sx={{
-      overflow: "hidden",
-      width: "100%",
-      position: "relative",
+
+      display: "flex",
+
+      gap: 1.2,
+
+      overflowX: "auto",
+
+      scrollBehavior: "smooth",
+
+      pb: 0.5,
+
+      "&::-webkit-scrollbar": {
+        display: "none",
+      },
+
+      msOverflowStyle: "none",
+
+      scrollbarWidth: "none",
+
     }}
   >
 
-    {/* =====================================================
-        AUTO SCROLL
-    ===================================================== */}
+    {(promoted.length
+      ? promoted
+      : [
 
-    <Box
-      sx={{
+        ]
 
-        display: "flex",
+    ).map((item, index) => (
 
-        gap: 1,
+      <Card
 
-        width: "max-content",
+        key={`${item.id}-${index}`}
 
-        animation:
-          promoted.length > 4
-            ? "goldenMove 26s linear infinite"
-            : "none",
+        onClick={() =>
 
-        "@keyframes goldenMove": {
+          item.promo
+            ? navigate("/upload")
+            : navigate(`/post/product/${item.id}`)
 
-          "0%": {
-            transform: "translateX(0)",
+        }
+
+        sx={{
+
+          minWidth: 110,
+
+          maxWidth: 110,
+
+          height: 180,
+
+          borderRadius: 3,
+
+          overflow: "hidden",
+
+          background: "#101010",
+
+          border:
+            "1px solid rgba(255,255,255,.05)",
+
+          flexShrink: 0,
+
+          position: "relative",
+
+          cursor: "pointer",
+
+          transition: ".25s",
+
+          "&:hover": {
+
+            transform: "translateY(-3px)",
+
+            borderColor:
+              "rgba(244,180,0,.35)",
+
           },
 
-          "100%": {
-            transform: "translateX(-50%)",
+          "& img": {
+            transition: ".4s",
           },
 
-        },
+          "&:hover img": {
+            transform: "scale(1.06)",
+          },
 
-      }}
-    >
+        }}
+      >
 
-      {/* =====================================================
-          IF PROMOTED EXISTS
-      ===================================================== */}
+        {/* IMAGE */}
 
-      {(promoted.length > 0
-        ? promoted.length > 4
-          ? [...promoted, ...promoted]
-          : promoted
-
-        : [
-
-            {
-              id: "promo-1",
-              title: "Boost Your Product",
-              price: "KES 50/day",
-              promoCard: true,
-            },
-
-            {
-              id: "promo-2",
-              title: "Reach More Buyers",
-              price: "KES 250/week",
-              promoCard: true,
-            },
-
-            {
-              id: "promo-3",
-              title: "Grow Your Business",
-              price: "KES 800/month",
-              promoCard: true,
-            },
-
-          ]
-
-      ).map((item, index) => (
-
-        <Card
-
-          key={`${item.id}-${index}`}
-
-          onClick={() =>
-
-            item.promoCard
-              ? navigate("/promote")
-              : navigate(`/post/product/${item.id}`)
-
-          }
-
+        <Box
           sx={{
-
             position: "relative",
-
-            minWidth: {
-              xs: 125,
-              sm: 145,
-            },
-
-            maxWidth: {
-              xs: 125,
-              sm: 145,
-            },
-
-            borderRadius: 4,
-
+            height: 100,
             overflow: "hidden",
-
-            flexShrink: 0,
-
-            cursor: "pointer",
-
-            background: item.promoCard
-              ? "linear-gradient(135deg,#1a1a1a,#111)"
-              : "#0f0f0f",
-
-            border: item.promoCard
-              ? "1px solid rgba(244,180,0,.35)"
-              : "1px solid rgba(255,255,255,.06)",
-
-            transition: "0.22s",
-
-            "&:hover": {
-              transform: "translateY(-2px)",
-              borderColor: "#F4B400",
-            },
-
-            "&:active": {
-              transform: "scale(.96)",
-            },
-
           }}
         >
 
-          {/* =====================================================
-              IMAGE / BANNER
-          ===================================================== */}
-
-          <Box sx={{ position: "relative" }}>
-
-            {!item.promoCard ? (
-
-              <Box
-                component="img"
-                src={
-                  item.images?.[0]?.thumb ||
-                  item.images?.[0]?.full ||
-                  "/placeholder.jpg"
-                }
-                sx={{
-                  width: "100%",
-                  height: {
-                    xs: 80,
-                    sm: 95,
-                  },
-                  objectFit: "cover",
-                }}
-              />
-
-            ) : (
-
-              <Box
-                sx={{
-                  width: "100%",
-                  height: {
-                    xs: 80,
-                    sm: 95,
-                  },
-
-                  background:
-                    "linear-gradient(135deg,#F4B400,#ff9800)",
-
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "column",
-                }}
-              >
-
-                <Typography
-                  sx={{
-                    fontSize: 26,
-                  }}
-                >
-                  🚀
-                </Typography>
-
-                <Typography
-                  sx={{
-                    fontSize: 10,
-                    fontWeight: 900,
-                    color: "#000",
-                  }}
-                >
-                  PROMOTE NOW
-                </Typography>
-
-              </Box>
-
-            )}
-
-            {/* =====================================================
-                BIG BADGE
-            ===================================================== */}
+          {item.promo ? (
 
             <Box
               sx={{
-                position: "absolute",
-                top: 6,
-                left: 6,
+
+                width: "100%",
+                height: "100%",
 
                 background:
-                  "linear-gradient(135deg,#F4B400,#FFD54F)",
+                  "linear-gradient(135deg,#F4B400,#ff9800)",
 
-                color: "#000",
+                display: "flex",
 
-                px: 0.8,
-                py: 0.3,
+                alignItems: "center",
 
-                borderRadius: 5,
+                justifyContent: "center",
 
-                fontSize: 8.5,
+                flexDirection: "column",
 
-                fontWeight: 900,
-
-                zIndex: 5,
-
-                boxShadow:
-                  "0 2px 10px rgba(244,180,0,.45)",
               }}
             >
-              ⭐ PROMOTED
-            </Box>
 
-            {/* DISCOUNT */}
+              <Typography sx={{ fontSize: 30 }}>
+                🚀
+              </Typography>
 
-            {!item.promoCard && item.discount > 0 && (
-
-              <Box
+              <Typography
                 sx={{
-                  position: "absolute",
-                  top: 6,
-                  right: 6,
-
-                  background: "#ff1744",
-
-                  color: "#fff",
-
-                  px: 0.8,
-                  py: 0.3,
-
-                  borderRadius: 5,
-
-                  fontSize: 8.5,
-
+                  color: "#000",
+                  fontSize: 10,
                   fontWeight: 900,
                 }}
               >
-                -{item.discount}%
-              </Box>
+                BOOST NOW
+              </Typography>
 
-            )}
+            </Box>
 
-          </Box>
+          ) : (
 
-          {/* =====================================================
-              DETAILS
-          ===================================================== */}
+            <Box
+              component="img"
+              src={
+                item.images?.[0]?.thumb ||
+                item.images?.[0]?.full ||
+                "/placeholder.jpg"
+              }
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
 
-          <Box sx={{ p: 1 }}>
+          )}
+
+          {/* DARK OVERLAY */}
+
+          <Box
+            sx={{
+
+              position: "absolute",
+
+              inset: 0,
+
+              background:
+                "linear-gradient(to top,rgba(0,0,0,.82),transparent 55%)",
+
+            }}
+          />
+
+          {/* BADGE */}
+
+          <Box
+            sx={{
+
+              position: "absolute",
+
+              top: 7,
+              left: 7,
+
+              px: 0.9,
+              py: 0.35,
+
+              borderRadius: 10,
+
+              background:
+                "rgba(0,0,0,.72)",
+
+              backdropFilter: "blur(10px)",
+
+              border:
+                "1px solid rgba(255,255,255,.08)",
+
+            }}
+          >
 
             <Typography
               sx={{
-                fontSize: 10.5,
-                fontWeight: 800,
-                color: "#fff",
-                lineHeight: 1.3,
-
-                overflow: "hidden",
-
-                display: "-webkit-box",
-
-                WebkitLineClamp: 2,
-
-                WebkitBoxOrient: "vertical",
-
-                minHeight: 28,
+                color: "#F4B400",
+                fontSize: 7.5,
+                fontWeight: 900,
               }}
             >
-              {item.title}
+              Sponsored
             </Typography>
+
+          </Box>
+
+          {/* TRENDING */}
+
+          {!item.promo && (
+
+            <Box
+              sx={{
+
+                position: "absolute",
+
+                bottom: 7,
+                left: 7,
+
+                background:
+                  "rgba(7, 1, 1, 0.72)",
+
+                backdropFilter: "blur(8px)",
+
+                borderRadius: 10,
+
+                px: 0.8,
+                py: 0.35,
+
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+
+              }}
+            >
+
+              <Box
+                sx={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: "#00ff6a",
+                }}
+              />
+
+              <Typography
+                sx={{
+                  color: "#fff",
+                  fontSize: 7.5,
+                  fontWeight: 700,
+                }}
+              >
+                Trending
+              </Typography>
+
+            </Box>
+
+          )}
+
+        </Box>
+
+        {/* DETAILS */}
+
+        <Box sx={{ p: 1 }}
+        >
+
+         <Typography
+            sx={{
+              color: "#fff",
+              fontSize: 10.5,
+              fontWeight: 800,
+              lineHeight: 1.35,
+
+              overflow: "hidden",
+
+              display: "-webkit-box",
+
+              WebkitLineClamp: 2,
+
+              WebkitBoxOrient: "vertical",
+
+              minHeight: 30,
+            }}
+          >
+            {item.title}
+          </Typography>
+
+          <Typography
+            sx={{
+              color: "#F4B400",
+              fontSize: 11,
+              fontWeight: 900,
+              mt: 0.7,
+            }}
+          >
+            {item.promo
+              ? item.price
+              : `KES ${Number(
+                  item.price || 0
+                ).toLocaleString()}`}
+          </Typography>
+
+          {/* MINI STATS */}
+
+          {!item.promo && (
 
             <Stack
               direction="row"
-              alignItems="center"
-              spacing={0.5}
-              mt={0.6}
+              spacing={1}
+              mt={0.8}
             >
 
               <Typography
                 sx={{
-                  color: "#F4B400",
-                  fontWeight: 900,
-                  fontSize: 11,
+                  color: "#76f82a8c",
+                  fontSize: 8,
+                  fontWeight: 700,
                 }}
               >
-                {!item.promoCard
-                  ? `KES ${item.price}`
-                  : item.price}
+                👁 Trending
               </Typography>
 
-              {!item.promoCard &&
-                item.markedPrice && (
-
-                <Typography
-                  sx={{
-                    color: "#777",
-                    fontSize: 8.5,
-                    textDecoration: "line-through",
-                  }}
-                >
-                  {item.markedPrice}
-                </Typography>
-
-              )}
+              <Typography
+                sx={{
+                  color: "#76f82a8c",
+                  fontSize: 8,
+                  fontWeight: 700,
+                }}
+              >
+                ⚡ Active
+              </Typography>
 
             </Stack>
 
-            {/* CTA */}
+          )}
 
-            {item.promoCard && (
+        </Box>
 
-              <Box
-                sx={{
-                  mt: 0.8,
+      </Card>
 
-                  background:
-                    "rgba(244,180,0,.12)",
-
-                  border:
-                    "1px solid rgba(244,180,0,.25)",
-
-                  borderRadius: 2,
-
-                  py: 0.5,
-
-                  textAlign: "center",
-                }}
-              >
-
-                <Typography
-                  sx={{
-                    color: "#F4B400",
-                    fontWeight: 800,
-                    fontSize: 9,
-                  }}
-                >
-                  Market Your Product
-                </Typography>
-
-              </Box>
-
-            )}
-
-          </Box>
-
-        </Card>
-
-      ))}
-
-    </Box>
-
-    {/* =====================================================
-        FADE EFFECTS
-    ===================================================== */}
-
-    <Box
-      sx={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        bottom: 0,
-
-        width: 25,
-
-        zIndex: 10,
-
-        background:
-          "linear-gradient(to right,#050505,transparent)",
-      }}
-    />
-
-    <Box
-      sx={{
-        position: "absolute",
-        right: 0,
-        top: 0,
-        bottom: 0,
-
-        width: 25,
-
-        zIndex: 10,
-
-        background:
-          "linear-gradient(to left,#050505,transparent)",
-      }}
-    />
+    ))}
 
   </Box>
 
 </Box>
-   
    {/* =========================================================
 QUICK ACTIONS
 ========================================================= */}
@@ -1605,7 +1773,7 @@ QUICK ACTIONS
         title: "Order Now",
         subtitle: "Shop products",
         icon: <ShoppingCartIcon />,
-        route: "/product",
+        route: "/InfiniteProducts",
         bg: "linear-gradient(135deg,#F4B40022,#F4B40008)",
       },
 
@@ -1745,7 +1913,7 @@ QUICK ACTIONS
     >
 
       <Box
-        onClick={() => navigate("/upload")}
+        onClick={() => navigate("/uploads")}
         sx={{
           flex: 1,
           background: GOLD,
@@ -1762,7 +1930,7 @@ QUICK ACTIONS
       </Box>
 
       <Box
-        onClick={() => navigate("/product")}
+        onClick={() => navigate("/InfiniteProducts")}
         sx={{
           flex: 1,
           border: `1px solid ${GOLD}`,
@@ -1793,7 +1961,7 @@ Only products paid for latest visibility
   title="Latest"
   subtitle="Fresh visible products"
   onClick={()=>
-   navigate("/product")
+   navigate("/InfiniteProducts")
   }
  />
 
@@ -1890,7 +2058,7 @@ Only products paid for latest visibility
 
  <Card
   onClick={()=>
-   navigate("/uploads")
+   navigate("/profile")
   }
   sx={{
 
@@ -2197,354 +2365,6 @@ Only products paid for latest visibility
 </Box>
 
       {/* =========================================================
-TRENDING SECTION
-========================================================= */}
-
-      <Box sx={{ px: 2, mt: 3 }}>
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={1.5}
-        >
-          <Box>
-            <Typography
-              sx={{
-                fontWeight: 800,
-                fontSize: 15,
-              }}
-            >
-              Trending Now
-            </Typography>
-
-            <Typography
-              sx={{
-                color: "#888",
-                fontSize: 11,
-              }}
-            >
-              Fresh listings from Juja
-            </Typography>
-          </Box>
-
-          <Button
-            endIcon={
-              <ArrowForwardIcon />
-            }
-            onClick={() =>
-              navigate("/product")
-            }
-            sx={{
-              color: GOLD,
-              textTransform: "none",
-            }}
-          >
-            View
-          </Button>
-        </Box>
-
-        {loading ? (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              py: 5,
-            }}
-          >
-            <CircularProgress
-              sx={{ color: GOLD }}
-            />
-          </Box>
-        ) : (
-          <Box
-            ref={scrollRef}
-            sx={{
-              display: "flex",
-              gap: 1.5,
-              overflowX: "auto",
-              pb: 1,
-              "&::-webkit-scrollbar": {
-                display: "none",
-              },
-            }}
-          >
-            {posts.map((item) => (
-              <Card
-                key={item.id}
-                onClick={() =>
-                  navigate(
-                    `/post/${
-                      routeMap[item.type]
-                    }/${item.id}`
-                  )
-                }
-                sx={{
-                  minWidth: 155,
-                  maxWidth: 155,
-                  borderRadius: 4,
-                  background: CARD,
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  cursor: "pointer",
-                  border: `1px solid ${BORDER}`,
-                }}
-              >
-                {/* IMAGE */}
-
-                <Box
-                  component="img"
-                  src={
-                    item.images?.[0]
-                      ?.thumb ||
-                    item.images?.[0]
-                      ?.full ||
-                    "/placeholder.jpg"
-                  }
-                  sx={{
-                    width: "100%",
-                    height: 120,
-                    objectFit: "cover",
-                  }}
-                />
-
-                <CardContent
-                  sx={{ p: 1.2 }}
-                >
-                  <Chip
-                    size="small"
-                    label={item.type}
-                    sx={{
-                      mb: 1,
-                      background:
-                        typeColors[
-                          item.type
-                        ],
-                      color: "#fff",
-                      fontWeight: 700,
-                      fontSize: 10,
-                    }}
-                  />
-
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      lineHeight: 1.3,
-                      height: 32,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {item.title}
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      mt: 1,
-                      fontWeight: 900,
-                      color: GOLD,
-                      fontSize: 14,
-                    }}
-                  >
-                    Ksh {item.price}
-                  </Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        )}
-      </Box>
-
-      {/* =========================================================
-FEATURES
-========================================================= */}
-
-      <Box sx={{ px: 2, mt: 3 }}>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: 15,
-            mb: 1.5,
-          }}
-        >
-          Opportunities
-        </Typography>
-
-        <Grid container spacing={1.5}>
-          {[
-            {
-              title: "Find Houses",
-              desc: "Rooms & bedsitters",
-              icon: <HomeWorkIcon />,
-              route: "/houses",
-            },
-            {
-              title: "Sell Products",
-              desc: "Start earning",
-              icon: <ShoppingBagIcon />,
-              route: "/uploads",
-            },
-            {
-              title: "Offer Services",
-              desc: "Get clients",
-              icon: <BuildIcon />,
-              route: "/services",
-            },
-            {
-              title: "Promote Business",
-              desc: "Reach students",
-              icon: <CampaignIcon />,
-              route: "/myuploads",
-            },
-          ].map((item, i) => (
-            <Grid
-              item
-              xs={6}
-              key={i}
-            >
-              <Card
-                onClick={() =>
-                  navigate(item.route)
-                }
-                sx={{
-                  background: CARD,
-                  borderRadius: 4,
-                  border: `1px solid ${BORDER}`,
-                  p: 1.5,
-                  cursor: "pointer",
-                  height: "100%",
-
-                  "&:active": {
-                    transform:
-                      "scale(0.97)",
-                  },
-                }}
-              >
-                <Avatar
-                  sx={{
-                    width: 42,
-                    height: 42,
-                    background:
-                      "rgba(250,214,11,0.12)",
-                    color: GOLD,
-                    mb: 1.5,
-                  }}
-                >
-                  {item.icon}
-                </Avatar>
-
-                <Typography
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: 13,
-                  }}
-                >
-                  {item.title}
-                </Typography>
-
-                <Typography
-                  sx={{
-                    fontSize: 11,
-                    color: "#999",
-                    mt: 0.5,
-                  }}
-                >
-                  {item.desc}
-                </Typography>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
-
-      {/* =========================================================
-WHY USERS STAY
-========================================================= */}
-
-      <Box sx={{ px: 2, mt: 3 }}>
-        <Card
-          sx={{
-            background:
-              "linear-gradient(135deg, rgba(250,214,11,0.14), rgba(255,255,255,0.02))",
-            borderRadius: 5,
-            border: `1px solid ${BORDER}`,
-          }}
-        >
-          <CardContent>
-            <Stack
-              spacing={2}
-            >
-              {[
-                {
-                  icon: (
-                    <BoltIcon />
-                  ),
-                  title:
-                    "Fast Local Connections",
-                  desc:
-                    "Connect with nearby students and local businesses quickly.",
-                },
-                {
-                  icon: (
-                    <TrendingUpIcon />
-                  ),
-                  title:
-                    "Income Opportunities",
-                  desc:
-                    "Sell products, market services and grow your business.",
-                },
-                {
-                  icon: (
-                    <VerifiedIcon />
-                  ),
-                  title:
-                    "Growing Community",
-                  desc:
-                    "Be part of the future of local digital marketplaces.",
-                },
-              ].map((item, i) => (
-                <Stack
-                  key={i}
-                  direction="row"
-                  spacing={1.5}
-                >
-                  <Avatar
-                    sx={{
-                      background:
-                        "rgba(250,214,11,0.15)",
-                      color: GOLD,
-                    }}
-                  >
-                    {item.icon}
-                  </Avatar>
-
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontWeight: 800,
-                        fontSize: 13,
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
-
-                    <Typography
-                      sx={{
-                        fontSize: 11,
-                        color: "#aaa",
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {item.desc}
-                    </Typography>
-                  </Box>
-                </Stack>
-              ))}
-            </Stack>
-          </CardContent>
-        </Card>
-      </Box>
-
-      {/* =========================================================
 COMMUNITY
 ========================================================= */}
 
@@ -2586,25 +2406,75 @@ COMMUNITY
               sx={{ mt: 1 }}
             >
               <Grid item xs={4}>
-                <Button
-                  fullWidth
-                  startIcon={
-                    <DownloadIcon />
-                  }
-                  onClick={
-                    handleInstallApp
-                  }
-                  sx={{
-                    background: GOLD,
-                    color: "#000",
-                    fontWeight: 800,
-                    borderRadius: 3,
-                    textTransform:
-                      "none",
-                  }}
-                >
-                  App
-                </Button>
+              <Button
+  fullWidth
+  startIcon={
+    installing ? (
+      <CircularProgress
+        size={18}
+        color="inherit"
+      />
+    ) : (
+      <DownloadIcon />
+    )
+  }
+  onClick={handleInstallApp}
+  disabled={installing}
+  sx={{
+
+    background:
+      isInstalled
+        ? "#1b5e20"
+        : GOLD,
+
+    color:
+      isInstalled
+        ? "#fff"
+        : "#000",
+
+    fontWeight: 900,
+
+    borderRadius: 3,
+
+    textTransform: "none",
+
+    height: 52,
+
+    fontSize: 15,
+
+    boxShadow:
+      "0 6px 18px rgba(250,214,11,.25)",
+
+    transition: ".25s",
+
+    "&:hover": {
+
+      background:
+        isInstalled
+          ? "#2e7d32"
+          : "#ffd600",
+
+      transform:
+        "translateY(-2px)",
+
+    },
+
+    "&:active": {
+
+      transform: "scale(.98)",
+
+    },
+
+  }}
+>
+  {isInstalled
+    ? "Installed"
+    : installing
+    ? "Installing..."
+    : installSupported
+    ? "Install App"
+    : "Get App"}
+</Button>
               </Grid>
 
               <Grid item xs={4}>

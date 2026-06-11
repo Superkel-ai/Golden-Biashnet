@@ -1,15 +1,29 @@
-import React, { useEffect, useState } from "react";
-import { Box, CircularProgress, Typography, IconButton } from "@mui/material";
+import React, { Suspense } from "react";
+
+import {
+  Box,
+  CircularProgress,
+  Typography,
+  IconButton
+} from "@mui/material";
+
 import { ArrowBack } from "@mui/icons-material";
+
 import { useParams, useNavigate } from "react-router-dom";
 
-import { db } from "../services/firebase";
-import { doc, getDoc } from "firebase/firestore";
-
-import ProductDetails from "../components/postDetails/ProductDetails";
+/* =========================================================
+DETAIL COMPONENTS
+========================================================= */
 import HouseDetails from "../components/postDetails/HouseDetails";
-import AdvertDetails from "../components/postDetails/AdvertDetails";
 import ServiceDetails from "../components/postDetails/ServiceDetails";
+import AdvertDetails from "../components/postDetails/AdvertDetails";
+
+/* =========================================================
+PRODUCT PAGE
+========================================================= */
+const Product = React.lazy(() =>
+  import("../pages/Product")
+);
 
 const GOLD = "#F4B400";
 const BG = "#0a0a0a";
@@ -19,88 +33,94 @@ export default function PostDetails() {
   const { type, id } = useParams();
   const navigate = useNavigate();
 
-  const [post, setPost] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const renderContent = () => {
 
+    switch (type) {
 
-  useEffect(() => {
+      case "product":
+        return (
+          <Suspense
+            fallback={
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  mt: 8
+                }}
+              >
+                <CircularProgress
+                  sx={{ color: GOLD }}
+                />
+              </Box>
+            }
+          >
+            <Product />
+          </Suspense>
+        );
 
-    const fetchPost = async () => {
+      case "house":
+        return (
+          <HouseDetails
+            id={id}
+          />
+        );
 
-      try {
+      case "service":
+        return (
+          <ServiceDetails
+            id={id}
+          />
+        );
 
-        const ref = doc(db, type + "s", id);
-        const snap = await getDoc(ref);
+      case "advert":
+        return (
+          <AdvertDetails
+            id={id}
+          />
+        );
 
-        if (snap.exists()) {
-
-          setPost({
-            id: snap.id,
-            type,
-            ...snap.data()
-          });
-
-        }
-
-      } catch (error) {
-
-        console.error("PostDetails error:", error);
-
-      } finally {
-
-        setLoading(false);
-
-      }
-
-    };
-
-    fetchPost();
-
-  }, [type, id]);
-
-
-  if (loading) {
-
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <CircularProgress sx={{ color: GOLD }} />
-      </Box>
-    );
-
-  }
-
-  if (!post) {
-
-    return (
-      <Typography sx={{ textAlign: "center", mt: 10 }}>
-        Item not found
-      </Typography>
-    );
-
-  }
-
+      default:
+        return (
+          <Typography
+            sx={{
+              color: "#fff",
+              textAlign: "center",
+              mt: 5
+            }}
+          >
+            Item not found
+          </Typography>
+        );
+    }
+  };
 
   return (
-
-    <Box sx={{ background: BG, minHeight: "100vh", color: "#fff", p: 2 }}>
+    <Box
+      sx={{
+        background: BG,
+        minHeight: "100vh",
+        color: "#fff"
+      }}
+    >
 
       <IconButton
         onClick={() => navigate(-1)}
-        sx={{ color: "#fff", mb: 2 }}
+        sx={{
+          color: "#fff",
+          position: "sticky",
+          top: 10,
+          zIndex: 1000,
+          ml: 1,
+          mt: 1,
+          background:
+            "rgba(0,0,0,0.5)"
+        }}
       >
         <ArrowBack />
       </IconButton>
 
-      {type === "product" && <ProductDetails post={post} />}
-
-      {type === "house" && <HouseDetails post={post} />}
-
-      {type === "advert" && <AdvertDetails post={post} />}
-
-      {type === "service" && <ServiceDetails post={post} />}
+      {renderContent()}
 
     </Box>
-
   );
-
 }

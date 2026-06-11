@@ -3,6 +3,11 @@
 import { initializeApp } from "firebase/app";
 
 
+// ================= NEW: APP CHECK IMPORT =================
+
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+
+
 // ================= FIREBASE SERVICES =================
 
 import {
@@ -35,6 +40,17 @@ const firebaseConfig = {
 // ================= INITIALIZE APP =================
 
 const app = initializeApp(firebaseConfig);
+
+
+// ================= NEW: INITIALIZE APP CHECK =================
+
+// App Check only runs in the browser, so we wrap it in a window check
+if (typeof window !== "undefined") {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6Ldu3P4sAAAAADS1gpEFAA67lrfEtRenXaa7iUzw'), // <-- Put your public Site Key here
+    isTokenAutoRefreshEnabled: true
+  });
+}
 
 
 // ================= FIRESTORE (OFFLINE SUPPORT) =================

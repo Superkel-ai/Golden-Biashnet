@@ -161,9 +161,12 @@ const handleSubmit = async () => {
       phone,
       description,
       images: imageUrls,
-      ownerId: auth.currentUser?.uid || null,
+      userId: auth.currentUser?.uid || null,
       promotion: promotionData,
       status: houseStatus,
+      sellerVerified: true,
+        sellerBadge: "golden",
+
       seo: {
         title: `${title} for rent in ${location}`,
         description: description.slice(0, 160),
@@ -190,6 +193,7 @@ const handleSubmit = async () => {
       keywords,
       searchText: `${title} ${propertyType} ${bedrooms} bedroom house rent ${location}`.toLowerCase(),
       promoted: promotionData?.plan !== "none",
+      sellerId: auth.currentUser.uid,
       featured: promotionData?.featured || false,
       views: 0,
       rating: 0,

@@ -44,7 +44,10 @@ import{
 
 import{useNavigate}from "react-router-dom";
 
-import{db}from "../services/firebase";
+import{db,auth}from "../services/firebase";
+import{
+ onAuthStateChanged
+}from "firebase/auth";
 
 /* =========================================================
 THEME
@@ -152,61 +155,47 @@ export default function AdminProducts(){
 
  };
 
+
  /* =========================================================
  PROMOTE
 ========================================================= */
 
- const togglePromote=async(product)=>{
+const togglePromote = async (product) => {
 
-  try{
+  try {
 
-   await updateDoc(
-    doc(db,"products",product.id),
-    {
-     "promotion.isPromoted":
-      !product.promotion?.isPromoted
-    }
-   );
+    const promoted =
+      !product.promotion?.promoted;
 
-   fetchProducts();
+    await updateDoc(
+      doc(db, "products", product.id),
+      {
 
-  }catch(err){
+        "promotion.promoted":
+          promoted,
 
-   console.log(err);
+        "promotion.promotedAt":
+          promoted
+            ? new Date()
+            : null,
 
-  }
+        "promotion.promotionPlan":
+          promoted
+            ? "daily"
+            : "none",
 
- };
+      }
+    );
 
- /* =========================================================
- DELETE
-========================================================= */
+    fetchProducts();
 
- const deleteProduct=async(product)=>{
+  } catch (err) {
 
-  const confirmDelete=window.confirm(
-   `Delete ${product.title}?`
-  );
-
-  if(!confirmDelete) return;
-
-  try{
-
-   await deleteDoc(
-    doc(db,"products",product.id)
-   );
-
-   setProducts(prev=>
-    prev.filter(x=>x.id!==product.id)
-   );
-
-  }catch(err){
-
-   console.log(err);
+    console.log(err);
 
   }
 
- };
+};
 
  /* =========================================================
  STATS
@@ -224,11 +213,13 @@ export default function AdminProducts(){
    x=>!x.isActive
   ).length;
 
- const promotedProducts=
-  products.filter(
-   x=>x.promotion?.isPromoted
-  ).length;
-
+ const promotedProducts = products.reduce(
+  (count, product) =>
+    product?.promotion?.promoted === true
+      ? count + 1
+      : count,
+  0
+);
  /* =========================================================
  UI
 ========================================================= */
@@ -551,7 +542,7 @@ export default function AdminProducts(){
   }}
  />
 
- {product.promotion?.isPromoted && (
+ {product.promotion?.promoted && (
 
  <Chip
   icon={<WorkspacePremium />}
@@ -742,35 +733,20 @@ export default function AdminProducts(){
 
  <Button
   fullWidth
-
   startIcon={<WorkspacePremium />}
-
-  onClick={()=>
-   togglePromote(product)
+  onClick={() =>
+    togglePromote(product)
   }
-
   sx={darkBtn}
- >
-  {product.promotion?.isPromoted
-   ? "Remove Promotion"
-   : "Promote Product"}
+>
+
+  {product.promotion?.promoted
+    ? "Remove Promotion"
+    : "Promote Product"}
+
  </Button>
-
- <Button
-  fullWidth
-  startIcon={<Delete />}
-  onClick={()=>
-   deleteProduct(product)
-  }
-  sx={deleteBtn}
- >
-  Delete Product
- </Button>
-
  </Stack>
-
  </Stack>
-
  </Paper>
 
  ))}
@@ -915,10 +891,3 @@ const darkBtn={
  height:44
 };
 
-const deleteBtn={
- border:"1px solid rgba(244,67,54,.35)",
- color:"#f44336",
- fontWeight:800,
- borderRadius:3,
- height:44
-};

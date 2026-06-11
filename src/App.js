@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
+import { useAuth } from "./context/AuthContext"; // Update path to your AuthContext
+
 
 // Splash
 import SplashScreen from "./components/SplashScreen";
@@ -8,12 +10,14 @@ import SplashScreen from "./components/SplashScreen";
 
 // Install prompt
 import Install from "./components/Install";
+//components
+import InfiniteProducts from "./components/home/InfiniteProducts";
+
 // Pages
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
-import Product from "./pages/Product";
 import Houses from "./pages/Houses";
 import Services from "./pages/Services";
 import Adverts from "./pages/Adverts";
@@ -21,23 +25,23 @@ import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Orders from "./pages/Orders";
 import Boost from "./pages/Boost"
-import Lend from "./pages/Lend"
 import MyOrders from "./pages/MyOrders";
 import MyUploads from "./pages/MyUploads";
 import EditListing from "./pages/EditListing";
+import Edit from "./components/profile/Edit";
 import Verify from "./pages/Verify";
 import SearchPage from "./pages/SearchPage";
 import SellerOrders from "./pages/SellerOrders";
 import PostDetails from "./pages/PostDetails";
 import Uploads from "./pages/Uploads";
 import Subscription from "./pages/Subscription";
-import TrackOrder from "./pages/TrackOrder";
 import Welcome from "./pages/Welcome";
 import InvestorDashboard from "./pages/InvestorDashboard";
 import Notify from "./pages/Notify";
 import ChatList from "./pages/ChatList";
 import ChatRoom from "./pages/ChatRoom";
 import ChatSeller from "./pages/ChatSeller";
+import FlashSale from "./pages/FlashSale";
 
 
 //Admin
@@ -57,6 +61,9 @@ import AdminSub from "./pages/AdminSub";
 import AdminChat from "./pages/AdminChat";
 import AdminChatSeller from "./pages/AdminChatSeller";
 import AdminSeller from "./pages/AdminSeller";
+import AdminVerify from "./pages/AdminVerify";
+import AdminEdits from "./pages/AdminEdits";
+import AdminFlash from "./pages/AdminFlash";
 
 
 
@@ -66,27 +73,27 @@ import AppLayout from "./layouts/AppLayout";
 import AdminAppLayout from "./layouts/AdminAppLayout";
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
-  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
-  
+ const [loadingSplash, setLoadingSplash] = useState(true);
+const { user, isAdmin, loading: authLoading } = useAuth();
 
-  // Splash timer
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 4000);
-    return () => clearTimeout(timer);
-  }, []);
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setLoadingSplash(false);
+  }, 1000);
 
-  // Check localStorage for admin login
-  useEffect(() => {
-    const loggedIn = localStorage.getItem("adminLoggedIn");
-    setAdminLoggedIn(loggedIn === "true");
-  }, []);
+  return () => clearTimeout(timer);
+}, []);
 
-  if (loading) return <SplashScreen />;
-
-  // Protected admin route
+// Only show splash for the first second
+if (loadingSplash) {
+  return <SplashScreen />;
+}
+  // SECURE PROTECTED ROUTE: Rejects localstorage manipulation completely
   const ProtectedAdminRoute = ({ children }) => {
-    return adminLoggedIn ? children : <Navigate to="/admin" replace />;
+    if (!user || !isAdmin) {
+      return <Navigate to="/admin" replace />;
+    }
+    return children;
   };
 
   return (
@@ -99,21 +106,22 @@ export default function App() {
           element={
             <AppLayout>
               <Routes>
-                <Route path="/product" element={<Product />} />
-                <Route path="/" element={<Welcome />} />
+      
+                <Route path="/welcome" element={<Welcome />} />
                 <Route path="/houses" element={<Houses />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/adverts" element={<Adverts />} />
-                <Route path="/home" element={<Home />} />
+                <Route path="/" element={<Home />} />
                 <Route path="/edit/:collection/:id" element={<EditListing />} />
-                <Route path="/lend" element={<Lend />} />
                 <Route path="/investor-dashboard" element={<InvestorDashboard />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/edit" element={<Edit />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/notify" element={<Notify />} />
                 <Route path="/chats" element={<ChatList />} />
                 <Route path="/support-chat/:chatId" element={<ChatRoom />} />
+                <Route path="/InfiniteProducts" element={<InfiniteProducts />} />
                 <Route path="/seller-support-chat/:chatId" element={<ChatSeller />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/boost" element={<Boost />} />
@@ -124,29 +132,30 @@ export default function App() {
                 <Route path="/uploads" element={<Uploads />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/product" element={<Product />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/my-orders" element={<MyOrders />} />
+                <Route path="/flash-sales" element={<FlashSale />} />
                 <Route path="/subscription" element={< Subscription />} />
-                <Route path="/track-order/:id" element={< TrackOrder />} />
+    
               </Routes>
             </AppLayout>
           }
         />
 
-        {/* ================= ADMIN LOGIN ================= */}
-        <Route
+         {/* ================= ADMIN LOGIN ================= */}
+         <Route
           path="/admin"
           element={
-            adminLoggedIn ? (
+            user && isAdmin ? (
               <Navigate to="/admin/dashboard" replace />
             ) : (
-              <AdminLogin onLoginSuccess={() => setAdminLoggedIn(true)} />
+              
+              <AdminLogin /> 
             )
           }
         />
-
-        {/* ================= ADMIN DASHBOARD ================= */}
+        
+        {/* admin routes below will now safely use the updated ProtectedAdminRoute */}
         <Route
           path="/admin/dashboard"
           element={
@@ -228,7 +237,16 @@ export default function App() {
           }
         />
 
-
+         <Route
+          path="/admin/verify"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminVerify />
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
 
         <Route
           path="/admin/services"
@@ -262,6 +280,30 @@ export default function App() {
             </ProtectedAdminRoute>
           }
         />
+
+        <Route
+        path="/admin/products/edit/:productId"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminEdits />
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+
+        
+        <Route
+        path="/admin/flash"
+          element={
+            <ProtectedAdminRoute>
+              <AdminAppLayout>
+                <AdminFlash />
+              </AdminAppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+
 
         <Route
           path="/admin/super"

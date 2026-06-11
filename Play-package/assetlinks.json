@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.web.golden_biashnet.twa",
+        "sha256_cert_fingerprints": ["0A:4E:98:A0:75:F9:0A:DA:EE:B0:EC:5F:78:A0:A9:80:21:CD:EA:72:2D:F1:D7:84:3E:88:0D:FE:62:1B:B5:42"]
+      }
+    }]
