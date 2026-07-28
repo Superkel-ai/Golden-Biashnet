@@ -1,244 +1,248 @@
-import React, { useEffect, useState } from "react";
+// src/pages/AdminFlash.js
+
+import React, { useEffect, useMemo, useState } from "react";
+
 import {
   Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Switch,
-  FormControlLabel,
-  MenuItem,
-  Stack,
   CircularProgress,
-  Alert
+  Fab,
+  Stack,
+  Typography,
+  Chip,
+  Button
 } from "@mui/material";
+
+import AddIcon from "@mui/icons-material/Add";
 
 import {
   collection,
-  getDocs,
-  doc,
-  updateDoc,
-  query,
-  where
+  getDocs
 } from "firebase/firestore";
 
 import { db } from "../services/firebase";
 
-const GOLD = "#F4B400";
+import Filters from "../components/flashsale/Filters";
+import ProductGrid from "../components/flashsale/ProductGrid";
+import BulkActions from "../components/flashsale/BulkActions";
+import EmptyState from "../components/flashsale/EmptyState";
 
-export default function AdminFlashSales() {
+/* =========================
+   ADMIN FLASH DASHBOARD
+========================= */
+
+export default function AdminFlash() {
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedId, setSelectedId] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const [form, setForm] = useState({
-    flashSale: false,
-    flashSalePrice: "",
-    flashSaleDuration: 24
-  });
-
+  const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
 
-  /* ================= LOAD PRODUCTS ================= */
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const q = query(
-          collection(db, "products"),
-          where("status", "in", ["approved", "active"])
-        );
+  const [selectMode, setSelectMode] = useState(false);
 
-        const snap = await getDocs(q);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState(null);
 
-        const data = snap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        }));
+  /* =========================
+     LOAD PRODUCTS
+  ========================= */
 
-        setProducts(data);
-
-      } catch (err) {
-        console.log(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, []);
-
-  /* ================= SELECT PRODUCT ================= */
-  const selectedProduct = products.find(p => p.id === selectedId);
-
-  /* ================= SAVE FLASH SALE ================= */
-  const handleSave = async () => {
-
-    if (!selectedId) return;
-
-    setSaving(true);
-
+  const loadProducts = async () => {
     try {
+      setLoading(true);
 
-      const endTime = new Date();
-      endTime.setHours(
-        endTime.getHours() + Number(form.flashSaleDuration || 24)
-      );
+      const snap = await getDocs(collection(db, "products"));
 
-      await updateDoc(doc(db, "products", selectedId), {
-        flashSale: form.flashSale,
-        flashSalePrice: Number(form.flashSalePrice),
-        flashSaleStart: new Date(),
-        flashSaleEnd: endTime
-      });
+      const data = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
-      alert("Flash sale updated successfully");
+      setProducts(data);
 
     } catch (err) {
       console.log(err);
-      alert("Error updating flash sale");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  /* ================= FILTER ================= */
-  const filteredProducts = products.filter(p =>
-    p.title?.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  /* =========================
+     FILTERS (OPTIMIZED)
+  ========================= */
+
+  const categories = useMemo(() => {
+    return [
+      ...new Set(
+        products
+          .map(p => p.category)
+          .filter(Boolean)
+      )
+    ];
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+
+    return products.filter(product => {
+
+      const matchSearch =
+        product.title
+          ?.toLowerCase()
+          .includes(search.toLowerCase());
+
+      const matchCategory =
+        !category || product.category === category;
+
+      return matchSearch && matchCategory;
+
+    });
+
+  }, [products, search, category]);
+
+  /* =========================
+     PRODUCT CLICK HANDLER
+  ========================= */
+
+  const handleProductClick = (product) => {
+
+    if (selectMode) {
+
+      const exists = selected.includes(product.id);
+
+      setSelected(
+        exists
+          ? selected.filter(id => id !== product.id)
+          : [...selected, product.id]
+      );
+
+    } else {
+
+      setCurrentProduct(product);
+      setBulkOpen(true);
+
+    }
+  };
+
+  /* =========================
+     LOADING STATE
+  ========================= */
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" py={6}>
-        <CircularProgress sx={{ color: GOLD }} />
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#050505"
+        }}
+      >
+        <CircularProgress />
       </Box>
     );
   }
 
+  /* =========================
+     MAIN UI
+  ========================= */
+
   return (
-    <Box sx={{ p: 3, background: "#050505", minHeight: "100vh", color: "#fff" }}>
+    <Box
+      sx={{
+        background: "#050505",
+        minHeight: "100vh",
+        p: 2,
+        position: "relative"
+      }}
+    >
 
-      <Typography sx={{ fontSize: 26, fontWeight: 900, color: GOLD, mb: 2 }}>
-        Flash Sale Manager
-      </Typography>
-
-      {/* SEARCH */}
-      <TextField
-        fullWidth
-        placeholder="Search product..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 2, background: "#111" }}
+      {/* ================= FILTERS ================= */}
+      <Filters
+        search={search}
+        setSearch={setSearch}
+        category={category}
+        setCategory={setCategory}
+        categories={categories}
       />
 
-      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+      {/* ================= SELECT MODE TOGGLE ================= */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: 2 }}
+      >
+        <Typography sx={{ color: "#aaa", fontSize: 13 }}>
+          {filteredProducts.length} products
+        </Typography>
 
-        {/* LEFT: PRODUCT LIST */}
-        <Paper sx={{ flex: 1, p: 2, background: "#111", maxHeight: 500, overflow: "auto" }}>
+        <Button
+          size="small"
+          variant={selectMode ? "contained" : "outlined"}
+          onClick={() => {
+            setSelectMode(!selectMode);
+            setSelected([]);
+          }}
+          sx={{
+            borderColor: "#444",
+            color: "#fff"
+          }}
+        >
+          {selectMode ? "Exit Select" : "Select Mode"}
+        </Button>
+      </Stack>
 
-          <Typography sx={{ mb: 1, fontWeight: 700 }}>
-            Select Product
-          </Typography>
+      {/* ================= GRID ================= */}
+      {filteredProducts.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <ProductGrid
+          products={filteredProducts}
+          selected={selected}
+          setSelected={setSelected}
+          selectMode={selectMode}
+          onProductClick={handleProductClick}
+        />
+      )}
 
-          {filteredProducts.map(p => (
-            <Box
-              key={p.id}
-              onClick={() => {
-                setSelectedId(p.id);
-                setForm({
-                  flashSale: p.flashSale || false,
-                  flashSalePrice: p.flashSalePrice || ""
-                });
-              }}
-              sx={{
-                p: 1,
-                mb: 1,
-                cursor: "pointer",
-                background: selectedId === p.id ? "#222" : "#000",
-                border: "1px solid #333",
-                borderRadius: 2
-              }}
-            >
-              <Typography sx={{ fontSize: 12 }}>
-                {p.title}
-              </Typography>
+      {/* ================= FLOATING BULK ACTION ================= */}
+      {selectMode && selected.length > 0 && (
+        <Fab
+          variant="extended"
+          color="primary"
+          onClick={() => setBulkOpen(true)}
+          sx={{
+            position: "fixed",
+            bottom: 20,
+            right: 20,
+            bgcolor: "#F4B400",
+            color: "#000",
+            fontWeight: 800,
+            "&:hover": { bgcolor: "#dca300" }
+          }}
+        >
+          Apply Flash ({selected.length})
+        </Fab>
+      )}
 
-              <Typography sx={{ fontSize: 10, color: "#aaa" }}>
-                KES {p.price}
-              </Typography>
-            </Box>
-          ))}
+      {/* ================= FLASH MODAL ================= */}
+      <BulkActions
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        product={currentProduct}
+        selected={selected}
+        products={products}
+        reload={loadProducts}
+        selectMode={selectMode}
+        setSelected={setSelected}
+      />
 
-        </Paper>
-
-        {/* RIGHT: SETTINGS */}
-        <Paper sx={{ flex: 1, p: 3, background: "#111" }}>
-
-          <Typography sx={{ fontWeight: 700, mb: 2 }}>
-            Flash Sale Settings
-          </Typography>
-
-          {!selectedProduct && (
-            <Alert severity="info">
-              Select a product first
-            </Alert>
-          )}
-
-          <Stack spacing={2} mt={2}>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.flashSale}
-                  onChange={(e) =>
-                    setForm({ ...form, flashSale: e.target.checked })
-                  }
-                />
-              }
-              label="Enable Flash Sale"
-            />
-
-            <TextField
-              label="Flash Sale Price"
-              type="number"
-              value={form.flashSalePrice}
-              onChange={(e) =>
-                setForm({ ...form, flashSalePrice: e.target.value })
-              }
-            />
-
-            <TextField
-              select
-              label="Duration (hours)"
-              value={form.flashSaleDuration}
-              onChange={(e) =>
-                setForm({ ...form, flashSaleDuration: e.target.value })
-              }
-            
-            >
-              {[6, 12, 24, 48].map(h => (
-                <MenuItem key={h} value={h}>
-                  {h} Hours
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={saving || !selectedId}
-              sx={{ background: GOLD, color: "#000", fontWeight: 700 }}
-            >
-              {saving ? "Saving..." : "Update Flash Sale"}
-            </Button>
-
-          </Stack>
-
-        </Paper>
-
-      </Box>
     </Box>
   );
 }

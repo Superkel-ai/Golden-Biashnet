@@ -225,8 +225,8 @@ export default function Prof() {
 
           <SellerBadge
             badge={
-              userData?.sellerBadge ||
-              userData?.badgeLevel
+              userData?.verificationPlan ||
+              userData?.sellerbadge
             }
           />
 
@@ -272,39 +272,6 @@ export default function Prof() {
         </Typography>
 
       </Stack>
-
-      {/* STATS */}
-
-      <Box
-        sx={{
-          mt: 3,
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(2,1fr)",
-          gap: 1,
-        }}
-      >
-
-        <MiniStat
-          icon={<People />}
-          title="Referrals"
-          value={
-            userData?.referralsCount ||
-            0
-          }
-        />
-
-        <MiniStat
-          icon={<MonetizationOn />}
-          title="Bonus Coins"
-          value={
-            userData?.bonusCoins ||
-            0
-          }
-        />
-
-      </Box>
-
     </Paper>
 
   );

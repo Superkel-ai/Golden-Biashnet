@@ -1,4 +1,8 @@
-import React, { useRef } from "react";
+import React, {
+  useRef,
+  useEffect
+} from "react";
+
 import {
   Box,
   Button,
@@ -6,63 +10,113 @@ import {
   IconButton,
   Typography,
   Card,
-  CardMedia
+  CardMedia,
+  LinearProgress
 } from "@mui/material";
 
-import { Add, Delete } from "@mui/icons-material";
+import {
+  Add,
+  Delete
+} from "@mui/icons-material";
 
 const MAX_IMAGES = 4;
-// =============================
-// Compress image function
-// =============================
+
+
+/* =====================================
+COMPRESS IMAGE
+===================================== */
+
 const compressImage = (file) => {
 
   return new Promise((resolve) => {
 
-    const reader = new FileReader();
+    const img = new Image();
 
-    reader.readAsDataURL(file);
+    const src = URL.createObjectURL(file);
 
-    reader.onload = (event) => {
+    img.src = src;
 
-      const img = new Image();
+    img.onload = () => {
 
-      img.src = event.target.result;
+      const canvas =
+        document.createElement("canvas");
 
-      img.onload = () => {
+      const MAX_WIDTH = 900;
 
-        const canvas = document.createElement("canvas");
-
-        const MAX_WIDTH = 1200;
-        const scaleSize = MAX_WIDTH / img.width;
-
-        canvas.width = MAX_WIDTH;
-        canvas.height = img.height * scaleSize;
-
-        const ctx = canvas.getContext("2d");
-
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(
-          (blob) => {
-
-            const compressedFile = new File(
-              [blob],
-              file.name,
-              {
-                type: "image/jpeg",
-                lastModified: Date.now(),
-              }
-            );
-
-            resolve(compressedFile);
-
-          },
-          "image/jpeg",
-          0.7 // compression quality
+      const width =
+        Math.min(
+          img.width,
+          MAX_WIDTH
         );
 
-      };
+      const scale =
+        width / img.width;
+
+      canvas.width = width;
+
+      canvas.height =
+        img.height * scale;
+
+      const ctx =
+        canvas.getContext("2d");
+
+      ctx.drawImage(
+
+        img,
+
+        0,
+
+        0,
+
+        canvas.width,
+
+        canvas.height
+
+      );
+
+      canvas.toBlob(
+
+        blob => {
+
+          URL.revokeObjectURL(src);
+
+          resolve({
+
+            file:
+
+            new File(
+
+              [blob],
+
+              file.name,
+
+              {
+
+                type:
+
+                "image/jpeg"
+
+              }
+
+            ),
+
+            preview:
+
+            URL.createObjectURL(
+
+              blob
+
+            )
+
+          });
+
+        },
+
+        "image/jpeg",
+
+        0.75
+
+      );
 
     };
 
@@ -71,167 +125,437 @@ const compressImage = (file) => {
 };
 
 
-// =============================
-// Component
-// =============================
-const ImageUploader = ({ images, setImages }) => {
 
-  const inputRef = useRef();
+/* =====================================
+COMPONENT
+===================================== */
 
+export default function ImageUploader({
 
-  // =============================
-  // Handle select
-  // =============================
-  const handleSelect = async (e) => {
-  const files = Array.from(e.target.files);
+images,
 
-  const remaining = MAX_IMAGES - images.length;
+setImages
 
-  // ❌ already full
-  if (remaining <= 0) {
-    alert(`You can only upload ${MAX_IMAGES} images`);
-    return;
-  }
+}){
 
-  // ✅ only allow remaining slots
-  const selectedFiles = files.slice(0, remaining);
+const inputRef =
+useRef();
 
-  const compressedImages = [];
+const handleSelect =
+async(e)=>{
 
-  for (let file of selectedFiles) {
-    const compressed = await compressImage(file);
-    compressedImages.push(compressed);
-  }
+const files=
 
-  setImages((prev) => [...prev, ...compressedImages]);
+Array.from(
 
-  // 🔥 reset input (important for re-selecting same image)
-  e.target.value = "";
-};
+e.target.files
 
-  // =============================
-  // Remove image
-  // =============================
-  const removeImage = (index) => {
+);
 
-    const updated = [...images];
+const remaining=
 
-    updated.splice(index, 1);
+MAX_IMAGES-
 
-    setImages(updated);
-
-  };
+images.length;
 
 
-  return (
+if(
 
-    <Box>
+remaining<=0
 
-      {/* Title */}
-      <Typography
-        sx={{
-          color: "#F4B400",
-          mb: 2,
-          fontWeight: "bold"
-        }}
-      >
-        Upload Images
-      </Typography>
+){
 
+alert(
 
-      {/* Upload button */}
-      <Button
-        variant="contained"
-        startIcon={<Add />}
-        onClick={() => inputRef.current.click()}
-        sx={{
-          background: "#F4B400",
-          color: "#000",
-          mb: 2,
+`Maximum ${MAX_IMAGES} images`
 
-          "&:hover": {
-            background: "#FFD54F"
-          }
-        }}
-      >
-        Select Images
-      </Button>
+);
+
+return;
+
+}
 
 
-      {/* Hidden input */}
-      <input
-        type="file"
-        hidden
-        multiple
-        accept="image/*"
-        ref={inputRef}
-        onChange={handleSelect}
-      />
+const selected=
+
+files.slice(
+
+0,
+
+remaining
+
+);
 
 
-      {/* Preview grid */}
-      <Grid container spacing={2}>
+try{
 
-        {images.map((file, index) => (
+const compressed=
 
-          <Grid item xs={4} key={index}>
+await Promise.all(
 
-            <Card
-              sx={{
-                background: "#111",
-                position: "relative"
-              }}
-            >
+selected.map(
 
-              <CardMedia
-                component="img"
-                image={URL.createObjectURL(file)}
-                sx={{
-                  height: 120,
-                  objectFit: "cover"
-                }}
-              />
+compressImage
 
-              {/* Delete button */}
-              <IconButton
-                onClick={() => removeImage(index)}
-                sx={{
-                  position: "absolute",
-                  top: 5,
-                  right: 5,
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff"
-                }}
-              >
-                <Delete />
-              </IconButton>
+)
 
-            </Card>
-
-          </Grid>
-
-        ))}
-
-      </Grid>
+);
 
 
-      {/* Helper text */}
-      <Typography
-        sx={{
-          opacity: 0.6,
-          fontSize: 13,
-          mt: 2
-        }}
-      >
-        
-      
-      </Typography>
+setImages(prev=>
+
+[
+
+...prev,
+
+...compressed
+
+]
+
+);
+
+}
+
+catch(err){
+
+console.log(err);
+
+}
 
 
-    </Box>
-
-  );
+e.target.value="";
 
 };
 
-export default ImageUploader;
+
+
+const removeImage=
+
+(index)=>{
+
+const item=
+
+images[index];
+
+if(
+
+item?.preview
+
+){
+
+URL.revokeObjectURL(
+
+item.preview
+
+);
+
+}
+
+
+setImages(
+
+images.filter(
+
+(_,i)=>
+
+i!==index
+
+)
+
+);
+
+};
+
+
+
+useEffect(()=>{
+
+return()=>{
+
+images.forEach(
+
+img=>{
+
+if(
+
+img.preview
+
+){
+
+URL.revokeObjectURL(
+
+img.preview
+
+);
+
+}
+
+}
+
+);
+
+};
+
+},[]);
+
+
+
+return(
+
+<Box>
+
+<Typography
+
+sx={{
+
+color:"#F4B400",
+
+fontWeight:700,
+
+mb:2
+
+}}
+
+>
+
+Upload Images
+
+</Typography>
+
+
+<Button
+
+variant="contained"
+
+startIcon={<Add/>}
+
+onClick={()=>
+
+inputRef.current.click()
+
+}
+
+sx={{
+
+background:"#F4B400",
+
+color:"#000",
+
+mb:2,
+
+fontWeight:700,
+
+"&:hover":{
+
+background:"#FFD54F"
+
+}
+
+}}
+
+>
+
+Select Images
+
+</Button>
+
+
+<input
+
+hidden
+
+multiple
+
+accept="image/*"
+
+type="file"
+
+ref={inputRef}
+
+onChange={handleSelect}
+
+/>
+
+
+<Grid
+
+container
+
+spacing={1}
+
+>
+
+{
+
+images.map(
+
+(img,index)=>(
+
+<Grid
+
+item
+
+xs={6}
+
+sm={4}
+
+md={3}
+
+key={index}
+
+>
+
+<Card
+
+sx={{
+
+position:
+
+"relative",
+
+borderRadius:3,
+
+overflow:
+
+"hidden",
+
+background:
+
+"#111"
+
+}}
+
+>
+
+<CardMedia
+
+component="img"
+
+image={
+
+img.preview
+
+}
+
+sx={{
+
+height:120,
+
+objectFit:
+
+"cover"
+
+}}
+
+/>
+
+
+<IconButton
+
+size="small"
+
+onClick={()=>
+
+removeImage(
+
+index
+
+)
+
+}
+
+sx={{
+
+position:
+
+"absolute",
+
+top:6,
+
+right:6,
+
+bgcolor:
+
+"rgba(0,0,0,.7)",
+
+color:"#fff"
+
+}}
+
+>
+
+<Delete/>
+
+</IconButton>
+
+</Card>
+
+</Grid>
+
+)
+
+)
+
+}
+
+</Grid>
+
+
+<Box mt={2}>
+
+<LinearProgress
+
+variant="determinate"
+
+value={
+
+(images.length/
+
+MAX_IMAGES)
+
+*100
+
+}
+
+sx={{
+
+height:8,
+
+borderRadius:5
+
+}}
+
+/>
+
+</Box>
+
+
+<Typography
+
+sx={{
+
+fontSize:13,
+
+mt:1,
+
+opacity:.7
+
+}}
+
+>
+
+{images.length}
+
+/
+
+{MAX_IMAGES}
+
+images selected
+
+</Typography>
+
+</Box>
+
+);
+
+}

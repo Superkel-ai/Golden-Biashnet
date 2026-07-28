@@ -45,6 +45,16 @@ import {
   increment
 } from "firebase/firestore";
 
+import {
+ Accordion,
+ AccordionSummary,
+ AccordionDetails,
+ InputAdornment
+} from "@mui/material";
+
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SearchIcon from "@mui/icons-material/Search";
+
 import { db, auth } from "../../services/firebase";
 
 import ImageUploader from "./ImageUploader";
@@ -68,23 +78,230 @@ const TILL = "3141192";
 /* =====================================================
 CATEGORIES
 ===================================================== */
-
 const categories = [
+
+  // ELECTRONICS
   "Electronics",
+  "Phones",
+  "Smartphones",
+  "Feature Phones",
+  "Phone Accessories",
+  "Tablets",
+  "Laptops",
+  "Computers",
+  "Computer Accessories",
+  "Monitors",
+  "Printers",
+  "Networking",
+  "Gaming",
+  "Gaming Consoles",
+  "Speakers",
+  "Audio Equipment",
+  "Headphones",
+  "Cameras",
+  "Security Systems",
+  "TVs",
+  "Home Entertainment",
+
+  // FASHION
   "Fashion",
-  "Home",
+  "Men Clothing",
+  "Women Clothing",
+  "Children Clothing",
   "Shoes",
+  "Men Shoes",
+  "Women Shoes",
+  "Bags",
+  "Handbags",
+  "Backpacks",
+  "Wallets",
+  "Belts",
   "Jewelry",
   "Watches",
-  "Foods",
-  "Snacks",
-  "Vehicles",
-  "Phones",
-  "Computers",
-  "Accessories",
-  "Other"
-];
+  "Sunglasses",
+  "Beauty",
+  "Makeup",
+  "Perfumes",
+  "Hair Products",
+  "Skincare",
+  "Barbershop Equipment",
 
+  // HOME
+  "Home",
+  "Furniture",
+  "Living Room",
+  "Bedroom",
+  "Dining",
+  "Beds",
+  "Mattresses",
+  "Beddings",
+  "Curtains",
+  "Carpets",
+  "Rugs",
+  "Wardrobes",
+  "Cabinets",
+  "Office Furniture",
+
+  // KITCHEN
+  "Kitchen",
+  "Cookware",
+  "Utensils",
+  "Cutlery",
+  "Dinner Sets",
+  "Kitchen Appliances",
+  "Microwaves",
+  "Blenders",
+  "Cookers",
+  "Gas Cookers",
+  "Fridges",
+  "Freezers",
+  "Water Dispensers",
+
+  // FOOD
+  "Food",
+  "Groceries",
+  "Snacks",
+  "Drinks",
+  "Soft Drinks",
+  "Juices",
+  "Tea",
+  "Coffee",
+  "Milk",
+  "Cereals",
+  "Rice",
+  "Beans",
+  "Flour",
+  "Cooking Oil",
+  "Spices",
+  "Bakery",
+  "Bread",
+  "Cakes",
+
+  // FRUITS & VEGETABLES
+  "Fruits",
+  "Vegetables",
+  "Fresh Produce",
+  "Organic Food",
+  "Herbs",
+  "Dairy Products",
+
+  // AGRICULTURE
+  "Agriculture",
+  "Seeds",
+  "Farm Inputs",
+  "Fertilizers",
+  "Animal Feed",
+  "Livestock",
+  "Poultry",
+  "Dairy Farming",
+  "Fish Farming",
+
+  // PETS
+  "Pets",
+  "Pet Food",
+  "Pet Accessories",
+
+  // BABY
+  "Baby Products",
+  "Baby Clothing",
+  "Baby Toys",
+  "Baby Care",
+
+  // SPORTS
+  "Sports",
+  "Fitness",
+  "Gym Equipment",
+  "Bicycles",
+  "Outdoor Equipment",
+
+  // BOOKS
+  "Books",
+  "Textbooks",
+  "Novels",
+  "Educational Materials",
+
+  // STATIONERY
+  "Stationery",
+  "Office Supplies",
+  "School Supplies",
+  "Pens",
+  "Books & Exercise Books",
+  "Printing Supplies",
+
+  // VEHICLES
+  "Vehicles",
+  "Cars",
+  "Motorbikes",
+  "Bicycles",
+  "Spare Parts",
+  "Tyres",
+  "Vehicle Accessories",
+
+  // REAL ESTATE
+  "Real Estate",
+  "Land",
+  "Plots",
+  "Houses",
+  "Apartments",
+  "Hostels",
+  "Commercial Property",
+
+  // CONSTRUCTION
+  "Construction",
+  "Building Materials",
+  "Paint",
+  "Tiles",
+  "Cement",
+  "Steel",
+  "Roofing Materials",
+  "Tools",
+  "Power Tools",
+
+  // SERVICES
+  "Services",
+  "Cleaning Services",
+  "Repair Services",
+  "Delivery Services",
+  "Transport Services",
+  "Photography",
+  "Graphic Design",
+  "Marketing",
+  "Tutoring",
+  "Consulting",
+
+  // EVENTS
+  "Events",
+  "Event Planning",
+  "Decorations",
+  "Catering",
+  "DJ Services",
+  "Sound Systems",
+  "Tents",
+  "Chairs",
+
+  // HEALTH
+  "Health",
+  "Medical Equipment",
+  "Pharmacy",
+  "Supplements",
+  "Personal Care",
+
+  // BUSINESS
+  "Wholesale",
+  "Retail",
+  "Bulk Sales",
+
+  // MISC
+  "Accessories",
+  "Collectibles",
+  "Crafts",
+  "Handmade",
+  "Gift Items",
+  "Second Hand",
+  "Antiques",
+  "Other"
+
+];
 /* =====================================================
 PROMOTION PLANS
 ===================================================== */
@@ -250,6 +467,22 @@ export default function ProductForm() {
     promotionPlan
   ]);
 
+
+  const [categorySearch, setCategorySearch] =
+useState("");
+
+const filteredCategories =
+categories.filter(cat =>
+
+cat.toLowerCase()
+
+.includes(
+
+categorySearch.toLowerCase()
+
+)
+
+);
   /* =====================================================
   VALIDATION
   ===================================================== */
@@ -399,25 +632,97 @@ Contact Biashnet Admin for more details.
       );
 
       /* =====================================================
-      IMAGE UPLOAD
-      ===================================================== */
+   IMAGE UPLOAD
+===================================================== */
 
-      const uploadedImages = [];
+setUploadProgress(0);
 
-      for (let i = 0; i < images.length; i++) {
+let completed = 0;
 
-        const img = images[i];
+const uploads = await Promise.allSettled(
 
-        const url = await uploadToCloudinary(img);
+images.map(
 
-        uploadedImages.push(url);
+async ({ file }) => {
 
-        setUploadProgress(
-          Math.round(((i + 1) / images.length) * 100)
-        );
+try{
 
-      }
+const result = await uploadToCloudinary(
 
+file
+
+);
+
+completed++;
+
+setUploadProgress(
+
+Math.round(
+
+(completed /
+
+images.length)
+
+*100
+
+)
+
+);
+
+return result;
+
+}
+
+catch(err){
+
+console.log(err);
+
+return null;
+
+}
+
+}
+
+)
+
+);
+
+const uploadedImages = uploads
+
+.filter(
+
+r =>
+
+r.status==="fulfilled"
+
+&&
+
+r.value
+
+)
+
+.map(
+
+r=>r.value
+
+);
+
+if(
+
+uploadedImages.length===0
+
+){
+
+throw new Error(
+
+"No images uploaded"
+
+);
+
+}
+
+setUploadProgress(100);
+     
       /* =====================================================
       DISCOUNT
       ===================================================== */
@@ -925,135 +1230,380 @@ Contact Biashnet Admin for more details.
         {/* =====================================================
         STEP 3
         ===================================================== */}
-
         {step === 2 && (
 
-          <Grid container spacing={2}>
+<Grid container spacing={2}>
 
-            <Grid item xs={12}>
 
-              <Typography
-                sx={{
-                  color: SUB,
-                  mb: 1
-                }}
-              >
-                Choose Category
-              </Typography>
+<Grid item xs={12}>
 
-              <Stack
-                direction="row"
-                spacing={1}
-                flexWrap="wrap"
-              >
+<Typography
+sx={{
+color:SUB,
+mb:1,
+fontWeight:700
+}}
+>
 
-                {categories.map((cat) => (
+Category
 
-                  <Chip
-                    key={cat}
-                    label={cat}
-                    clickable
-                    onClick={() =>
-                      setCategory(cat)
-                    }
-                    sx={{
-                      mb: 1,
-                      background:
-                        category === cat
-                          ? GOLD
-                          : "#222",
-                      color:
-                        category === cat
-                          ? "#000"
-                          : "#fff"
-                    }}
-                  />
+</Typography>
 
-                ))}
 
-              </Stack>
+<TextField
+fullWidth
+size="small"
+placeholder="Search category..."
 
-            </Grid>
+value={categorySearch}
 
-            <Grid item xs={6}>
+onChange={(e)=>
+setCategorySearch(
+e.target.value
+)
+}
 
-              <TextField
-                select
-                fullWidth
-                label="Condition"
-                value={condition}
-                onChange={(e) =>
-                  setCondition(
-                    e.target.value
-                  )
-                }
-                sx={inputStyle}
-              >
+sx={inputStyle}
 
-                <MenuItem value="New">
-                  New
-                </MenuItem>
+InputProps={{
 
-                <MenuItem value="Used">
-                  Used
-                </MenuItem>
+startAdornment:(
 
-              </TextField>
+<InputAdornment position="start">
 
-            </Grid>
+<SearchIcon/>
 
-            <Grid item xs={6}>
+</InputAdornment>
 
-              <TextField
-                fullWidth
-                label="Location"
-                value={location}
-                onChange={(e) =>
-                  setLocation(
-                    e.target.value
-                  )
-                }
-                sx={inputStyle}
-              />
+)
 
-            </Grid>
+}}
 
-            <Grid item xs={12}>
+/>
 
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Description"
-                value={description}
-                onChange={(e) =>
-                  setDescription(
-                    e.target.value
-                  )
-                }
-                sx={inputStyle}
-              />
 
-            </Grid>
+<Accordion
 
-            <Grid item xs={12}>
+defaultExpanded={false}
 
-              <Button
-                onClick={
-                  generateDescription
-                }
-                sx={{
-                  color: GOLD
-                }}
-              >
-                Generate Description
-              </Button>
+sx={{
 
-            </Grid>
+mt:2,
 
-          </Grid>
+background:"#111",
 
-        )}
+border:"1px solid #222",
+
+borderRadius:3
+
+}}
+
+>
+
+<AccordionSummary
+
+expandIcon={
+
+<ExpandMoreIcon
+
+sx={{
+
+color:GOLD
+
+}}
+
+/>
+
+}
+
+>
+
+<Box>
+
+<Typography
+
+sx={{
+
+fontWeight:700,
+
+color:"#fff"
+
+}}
+
+>
+
+Browse Categories
+
+</Typography>
+
+
+<Typography
+
+sx={{
+
+fontSize:12,
+
+color:"#888"
+
+}}
+
+>
+
+{
+
+category
+
+?
+
+`Selected: ${category}`
+
+:
+
+"Choose a category"
+
+}
+
+</Typography>
+
+</Box>
+
+</AccordionSummary>
+
+
+<AccordionDetails>
+
+<Box
+
+sx={{
+
+maxHeight:250,
+
+overflowY:"auto"
+
+}}
+
+>
+
+<Stack
+
+direction="row"
+
+spacing={1}
+
+useFlexGap
+
+flexWrap="wrap"
+
+>
+
+{
+
+filteredCategories.map(
+
+(cat)=>(
+
+<Chip
+
+key={cat}
+
+label={cat}
+
+clickable
+
+onClick={()=>
+
+setCategory(cat)
+
+}
+
+sx={{
+
+mb:1,
+
+fontWeight:700,
+
+background:
+
+category===cat
+
+?
+
+GOLD
+
+:
+
+"#222",
+
+color:
+
+category===cat
+
+?
+
+"#000"
+
+:
+
+"#fff",
+
+"&:hover":{
+
+background:GOLD,
+
+color:"#000"
+
+}
+
+}}
+
+/>
+
+)
+
+)
+
+}
+
+</Stack>
+
+</Box>
+
+</AccordionDetails>
+
+</Accordion>
+
+</Grid>
+
+
+
+<Grid item xs={6}>
+
+<TextField
+
+select
+
+fullWidth
+
+label="Condition"
+
+value={condition}
+
+onChange={(e)=>
+
+setCondition(
+
+e.target.value
+
+)
+
+}
+
+sx={inputStyle}
+
+>
+
+<MenuItem value="New">
+
+New
+
+</MenuItem>
+
+<MenuItem value="Used">
+
+Used
+
+</MenuItem>
+
+</TextField>
+
+</Grid>
+
+
+
+<Grid item xs={6}>
+
+<TextField
+
+fullWidth
+
+label="Location"
+
+value={location}
+
+onChange={(e)=>
+
+setLocation(
+
+e.target.value
+
+)
+
+}
+
+sx={inputStyle}
+
+/>
+
+</Grid>
+
+
+
+<Grid item xs={12}>
+
+<TextField
+
+fullWidth
+
+multiline
+
+rows={4}
+
+label="Description"
+
+value={description}
+
+onChange={(e)=>
+
+setDescription(
+
+e.target.value
+
+)
+
+}
+
+sx={inputStyle}
+
+/>
+
+</Grid>
+
+
+
+<Grid item xs={12}>
+
+<Button
+
+onClick={generateDescription}
+
+sx={{
+
+color:GOLD
+
+}}
+
+>
+
+Generate Description
+
+</Button>
+
+</Grid>
+
+
+</Grid>
+
+)}
 
         {/* =====================================================
         STEP 4

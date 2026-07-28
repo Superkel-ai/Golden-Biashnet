@@ -279,20 +279,6 @@ function SmallProductCard({ product }) {
               fontSize: 12,
             }}
           />
-
-          <Typography
-            sx={{
-              fontSize: 10,
-
-              color: "#aaa",
-
-              ml: 0.3,
-            }}
-          >
-            {(product.rating || 0).toFixed(1)}
-            {" "}
-            ({product.reviewCount || 0})
-          </Typography>
         </Box>
 
         {/* Price */}
@@ -371,39 +357,6 @@ function SmallProductCard({ product }) {
               "Kenya"}
           </Typography>
         </Box>
-
-        {/* Views / Sold */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-
-            mt: 0.4,
-          }}
-        >
-          <VisibilityIcon
-            sx={{
-              fontSize: 11,
-
-              color: "#888",
-            }}
-          />
-
-          <Typography
-            sx={{
-              fontSize: 10,
-
-              color: "#888",
-
-              ml: 0.4,
-            }}
-          >
-            {product.soldCount > 0
-              ? `${product.soldCount} sold`
-              : `${product.views || 0} views`}
-          </Typography>
-        </Box>
-
         {/* Delivery */}
         {product.deliveryAvailable && (
           <Box

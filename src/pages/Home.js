@@ -58,7 +58,7 @@ export default function HomePage() {
         const q = query(
           collection(db, "products"),
           where("status", "in", ["active", "approved"]),
-          orderBy("createdAt", "desc"), limit (200)
+          orderBy("createdAt", "desc"), limit (5000)
         );
 
         const snap = await getDocs(q);
@@ -107,10 +107,38 @@ export default function HomePage() {
     return Object.keys(categoryMap);
   }, [categoryMap]);
 
+  const visibleCategories = useMemo(() => {
+
+  if (selectedCategory === "All") {
+
+    return Object.entries(categoryMap);
+
+  }
+
+  return Object.entries(categoryMap)
+
+    .filter(
+
+      ([cat]) =>
+
+        normalize(cat) ===
+
+        normalize(selectedCategory)
+
+    );
+
+}, [
+
+categoryMap,
+
+selectedCategory
+
+]);
+
   /* ================= FEATURED SECTIONS ================= */
 
   const promotedProducts = useMemo(() =>
-    products.filter(p => p.promotion?.promoted === true).slice(0, 20),
+    products.filter(p => p.promotion?.promoted === true).slice(0, 50),
     [products]
   );
   
@@ -121,7 +149,7 @@ export default function HomePage() {
           (b.createdAt?.seconds || 0) -
           (a.createdAt?.seconds || 0)
       )
-      .slice(0, 20),
+      .slice(0, 50),
     [products]
   );
 
@@ -138,14 +166,14 @@ export default function HomePage() {
 
         const scoreB =
           (b.priorityScore || 0) +
-          (b.isPromoted ? 100 : 0) +
+          (b.promotion?.promoted === true ? 100 : 0) +
           (b.sellerVerified ? 50 : 0) +
           ((b.views || 0) * 0.1);
 
         return scoreB - scoreA;
 
       })
-      .slice(0, 8);
+      .slice(0, 20);
 
   }, [products]);
 
@@ -194,14 +222,43 @@ export default function HomePage() {
       <ProductRow title="🆕 Latest Arrivals" products={latestProducts} />
 
       {/* 🔥 DYNAMIC CATEGORY RENDERING (IMPORTANT FIX) */}
-      {Object.entries(categoryMap).map(([category, items]) => (
-        <ProductRow
-          key={category}
-          title={`📦 ${capitalize(category)}`}
-          products={items.slice(0, 20)}
-        />
-      ))}
+     {visibleCategories
 
+.sort(
+
+(a,b)=>
+
+b[1].length -
+
+a[1].length
+
+)
+
+.map(
+
+([category,items])=>(
+
+<ProductRow
+
+key={category}
+
+title={
+
+`📦 ${capitalize(category)} (${items.length})`
+
+}
+
+products={items}
+
+showViewAll
+
+category={category}
+
+/>
+
+)
+
+)}
       {/* RECOMMENDED */}
       <RecommendedGrid products={recommendedProducts} />
 

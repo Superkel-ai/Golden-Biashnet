@@ -157,16 +157,9 @@ export default function ServiceForm() {
 
       setLoading(true);
 
-      const imageUrls = [];
-
-      for (let img of images) {
-
-        const url = await uploadToCloudinary(img);
-
-        imageUrls.push(url);
-
-      }
-
+      const imageUrls = await Promise.all(
+  images.map(img => uploadToCloudinary(img.file))
+);
       const serviceRef = await addDoc(collection(db, "services"), {
 
         title,

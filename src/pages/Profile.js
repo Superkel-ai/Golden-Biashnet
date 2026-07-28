@@ -146,7 +146,6 @@ export default function Profile() {
         <Prof />
         <TopSeller />
         <Referrals />
-        <Nav />
       </Container>
     </Box>
   );

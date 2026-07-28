@@ -432,10 +432,13 @@ if (user && !verifiedUser) {
             fontSize: 14
           }}
         >
+         FREE OFFER FOR LIMITED TIME:
+        Verify your account for free and start posting today!
+      
           To keep Golden Biashnet secure,
           all sellers must verify first
           before posting products,
-          houses, services or adverts.
+          houses, services or adverts. 
         </Typography>
 
         <Button
@@ -449,7 +452,7 @@ if (user && !verifiedUser) {
             height: 48
           }}
         >
-          Verify Account
+          Verify Account for Free
         </Button>
 
       </Paper>

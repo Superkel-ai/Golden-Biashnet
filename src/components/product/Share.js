@@ -28,23 +28,9 @@ export const shareProduct = async ({ post, onShare }) => {
     // =====================================================
     // PRICES (SAFE PARSING)
     // =====================================================
-    const price = Number(post?.price || 0);
-    const markedPrice = Number(post?.markedPrice || 0);
-    const discount = Number(post?.discount || 0);
 
     const isFlashSale = post?.flashSale === true;
     const isPromoted = post?.promoted === true;
-
-    // =====================================================
-    // AUTO DISCOUNT CALC (if missing)
-    // =====================================================
-    let calculatedDiscount = discount;
-
-    if (!calculatedDiscount && markedPrice > price && markedPrice > 0) {
-      calculatedDiscount = Math.round(
-        ((markedPrice - price) / markedPrice) * 100
-      );
-    }
 
     // =====================================================
     // BADGES
@@ -53,38 +39,16 @@ export const shareProduct = async ({ post, onShare }) => {
 
     if (isFlashSale) badges.push("🔥 FLASH SALE");
     if (isPromoted) badges.push("⭐ PROMOTED");
-    if (calculatedDiscount > 0)
-      badges.push(`🏷️ ${calculatedDiscount}% OFF`);
-
-    // =====================================================
-    // CLEAN DESCRIPTION
-    // =====================================================
-    const description = post?.description
-      ? post.description.slice(0, 120).trim()
-      : "";
-
     // =====================================================
     // SHARE TEXT (OPTIMIZED FOR WHATSAPP + IG + TIKTOK)
     // =====================================================
     const shareText = `
 🛍️ ${post?.title || "Product"}
-
-💰 Price: KES ${price.toLocaleString()}
-${markedPrice ? `🏷️ Before: KES ${markedPrice.toLocaleString()}` : ""}
-
-${calculatedDiscount ? `🔥 Save ${calculatedDiscount}%` : ""}
 ${isFlashSale ? "⚡ FLASH SALE LIVE NOW!" : ""}
 ${isPromoted ? "⭐ Featured Product" : ""}
-
-📦 Category: ${post?.category || "Product"}
-📍 Location: ${post?.location || "Kenya"}
-
-📝 ${description ? description + "..." : ""}
-
 🛒 Buy Now:
 👉 ${shareUrl}
-
-🚀 Golden Biashnet Marketplace
+@Biashnet BUY & SELL ONLINE 
 ${badges.length ? "\n" + badges.join(" • ") : ""}
     `.trim();
 

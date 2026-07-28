@@ -71,8 +71,6 @@ const handleCopyTill = () => {
 
   const [phone, setPhone] = useState("");
 
-  const [whatsapp, setWhatsapp] = useState("");
-
   const [location, setLocation] = useState("");
 
   const [businessName, setBusinessName] = useState("");
@@ -158,9 +156,6 @@ if (verifySnap.exists()) {
         setUserData(data);
 
         setPhone(data.phone || "");
-        setWhatsapp(
-          data.whatsapp || ""
-        );
 
         setLocation(
           data.location || ""
@@ -283,39 +278,6 @@ if (verifySnap.exists()) {
         }
 
       );
-
-      /* =====================================
-         OPEN WHATSAPP
-      ===================================== */
-
-      const message = encodeURIComponent(
-
-`Hello Biashnet Admin,
-
-I have submitted my seller verification request.
-
-Name: ${userData?.name}
-Email: ${auth.currentUser.email}
-User ID: ${auth.currentUser.uid}
-
-Plan: ${plans[plan].title}
-
-Phone: ${phone}
-
-Please guide me on verification payment.
-
-Thank you.`
-
-      );
-
-      window.open(
-
-        `https://wa.me/254758922614?text=${message}`,
-
-        "_blank"
-
-      );
-
       setSuccess(
         "Verification request submitted successfully."
       );
@@ -382,7 +344,7 @@ Thank you.`
                 fontWeight: 700
               }}
             >
-              Seller Verification
+              Limited-Time Free Seller Verification
             </Typography>
 
             <Typography
@@ -390,7 +352,7 @@ Thank you.`
                 color: "#aaa"
               }}
             >
-              Verify your account to upload
+              Verify your account for free to upload
               products, services, houses
               and adverts securely.
             </Typography>
@@ -619,214 +581,7 @@ Thank you.`
   </Paper>
 
 )}
-
-      {/* =====================================================
-   MPESA PAYMENT GUIDE
-===================================================== */}
-
-<Paper
-  sx={{
-    p: 3,
-    mb: 3,
-    background: "#111",
-    border: "1px solid #222"
-  }}
->
-
-  <Stack
-    direction="row"
-    spacing={2}
-    alignItems="center"
-    mb={2}
-  >
-
-    <Security
-      sx={{
-        color: GOLD,
-        fontSize: 35
-      }}
-    />
-
-    <Box>
-
-      <Typography
-        variant="h6"
-        sx={{
-          color: "#fff",
-          fontWeight: 700
-        }}
-      >
-        Verification Payment
-      </Typography>
-
-      <Typography
-        sx={{
-          color: "#aaa",
-          fontSize: 14
-        }}
-      >
-        Complete verification payment
-        using M-PESA Business Till contact ADMIN for Approval
-      </Typography>
-
-    </Box>
-
-  </Stack>
-
-  </Paper>
-
-  {/* TILL */}
-
-<Paper
-  sx={{
-    p: 2,
-    mb: 2,
-    background: "#151515",
-    border: `1px solid ${GOLD}`
-  }}
->
-  <Typography
-    sx={{
-      color: "#aaa",
-      fontSize: 13
-    }}
-  >
-    Business Till Number
-  </Typography>
-
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between"
-    }}
-  >
-    <Typography
-      variant="h4"
-      sx={{
-        color: GOLD,
-        fontWeight: 700,
-        letterSpacing: 2
-      }}
-    >
-      3141192
-    </Typography>
-
-    <IconButton
-      onClick={handleCopyTill}
-      sx={{ color: GOLD }}
-    >
-      <ContentCopyIcon />
-    </IconButton>
-  </Box>
-</Paper>
-
-<Snackbar
-  open={copied}
-  autoHideDuration={2000}
-  onClose={() => setCopied(false)}
->
-  <Alert severity="success">
-    Till Number Copied
-  </Alert>
-</Snackbar>
-  {/* =====================================================
-   PAYMENT STEPS
-===================================================== */}
-
-<Accordion
-  sx={{
-    mt: 2,
-    background: "#111",
-    color: "#fff",
-    border: "1px solid #222",
-    boxShadow: "none"
-  }}
->
-
-  <AccordionSummary
-    expandIcon={
-      <ExpandMoreIcon
-        sx={{ color: GOLD }}
-      />
-    }
-  >
-
-    <Typography
-      sx={{
-        fontWeight: 700,
-        color: GOLD
-      }}
-    >
-      How To Pay Verification Fee
-    </Typography>
-
-  </AccordionSummary>
-
-  <AccordionDetails>
-
-    <Stack spacing={1.2}>
-
-      <Chip
-        label="1. Open M-PESA"
-        sx={{
-          background: "#1a1a1a",
-          color: "#fff"
-        }}
-      />
-
-      <Chip
-        label="2. Select Lipa na M-PESA"
-        sx={{
-          background: "#1a1a1a",
-          color: "#fff"
-        }}
-      />
-
-      <Chip
-        label="3. Select Buy Goods & Services"
-        sx={{
-          background: "#1a1a1a",
-          color: "#fff"
-        }}
-      />
-
-      <Chip
-        label="4. Enter Till Number 3141192"
-        sx={{
-          background: "#1a1a1a",
-          color: GOLD,
-          fontWeight: 700
-        }}
-      />
-
-      <Chip
-        label={`5. Pay KES ${plans[plan].offer}`}
-        sx={{
-          background: "#1a1a1a",
-          color: GOLD,
-          fontWeight: 700
-        }}
-      />
-
-    </Stack>
-
-    <Alert
-      severity="info"
-      sx={{ mt: 3 }}
-    >
-      After payment, submit your
-      verification request and contact
-      any verification admin on WhatsApp.
-    </Alert>
-
-  </AccordionDetails>
-
-</Accordion>
-
-
-
-      {/* FORM */}
+ {/* FORM */}
 
       <Paper
         sx={{

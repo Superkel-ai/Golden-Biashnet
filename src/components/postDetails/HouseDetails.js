@@ -210,7 +210,7 @@ ${formatPrice(house.rent)} / month
 View House:
 ${url}
 
-Golden Biashnet`;
+Biashnet`;
 
    if(navigator.share){
 

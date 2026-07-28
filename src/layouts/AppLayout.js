@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   TrendingUp,
 } from "@mui/icons-material";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -69,18 +70,13 @@ export default function AppLayout({ children }) {
   const menuItems = [
     { text: "Home", icon: <Home />, path: "/" },
     { text: "Uploads", icon: <Upload />, path: "/uploads" },
-
-  
     { text: "Houses", icon: <Home />, path: "/houses" },
     { text: "Services", icon: <Build />, path: "/services" },
     { text: "Adverts", icon: <Campaign />, path: "/adverts" },
     { text: "cart", icon: <ShoppingCart />, path: "/cart" },
     { text: "My Orders", icon: <LocalShipping />, path: "/my-orders" },
-    
-    { text: "Create Account", icon: <PersonAdd />, path: "/signup" },
     { text: "Profile", icon: <Person />, path: "/profile" },
     { text: "LogIn", icon: <Logout />, path: "/login" },
-     { text: "Info", icon: <InfoOutlinedIcon />, path: "/welcome" },
   ];
 
   return (
@@ -260,7 +256,6 @@ export default function AppLayout({ children }) {
               icon={<Upload />}
               sx={{ color: COLORS.GOLD }}
             />
-
              <BottomNavigationAction
               label="Cart"
               value="/cart"
@@ -268,13 +263,13 @@ export default function AppLayout({ children }) {
               sx={{ color: COLORS.GOLD }}
             />
             <BottomNavigationAction
-              label="My Orders"
+              label="Orders"
               value="/my-orders"
               icon={<LocalShipping />}
               sx={{ color: COLORS.GOLD }}
             />
             <BottomNavigationAction
-              label="My Profile"
+              label="Profile"
               value="/profile"
               icon={<Person />}
               sx={{ color: COLORS.GOLD }}

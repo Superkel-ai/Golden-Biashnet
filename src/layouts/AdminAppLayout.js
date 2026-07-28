@@ -101,12 +101,6 @@ export default function AdminAppLayout({ children }) {
     path: "/admin/flash"
   },
 
-  {
-    text: "Cart Monitor",
-    icon: <MonitorHeart />,
-    path: "/admin/cart"
-  },
-
   // ================= VERIFY =================
   {
     text: "Verify",

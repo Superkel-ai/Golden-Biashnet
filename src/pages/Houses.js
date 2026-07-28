@@ -747,17 +747,6 @@ export default function HousesPage() {
 
           }}
         >
-
-          <Typography
-            sx={{
-              fontWeight: 900,
-              fontSize: 18
-            }}
-          >
-            Earn KES 50
-            Per Vacant House
-          </Typography>
-
           <Typography
             sx={{
               fontSize: 13,
@@ -784,7 +773,7 @@ export default function HousesPage() {
 
               background: "#000",
 
-              color: "#fff",
+              color: "#ffd000",
 
               fontWeight: 800,
 
@@ -802,177 +791,10 @@ export default function HousesPage() {
       </Box>
 
       {/* =================================================
-         QUICK NAVIGATION
-      ================================================= */}
-
-      <Box
-        sx={{
-
-          display: "flex",
-
-          gap: 1,
-
-          overflowX: "auto",
-
-          px: 1.5,
-
-          py: 2,
-
-          "&::-webkit-scrollbar": {
-            display: "none"
-          }
-
-        }}
-      >
-
-        {/* PRODUCTS */}
-
-        <Box
-          onClick={() =>
-            navigate("/product")
-          }
-          sx={{
-
-            display: "flex",
-
-            alignItems: "center",
-
-            gap: .5,
-
-            background: "#1a1a1a",
-
-            px: 2,
-
-            py: 1,
-
-            borderRadius: 3,
-
-            minWidth: "fit-content",
-
-            cursor: "pointer"
-
-          }}
-        >
-
-          <ShoppingCart
-            sx={{
-              fontSize: 18,
-              color: GOLD
-            }}
-          />
-
-          <Typography
-            sx={{
-              color: "#fff",
-              fontSize: 12
-            }}
-          >
-            Products
-          </Typography>
-
-        </Box>
-
-        {/* SERVICES */}
-
-        <Box
-          onClick={() =>
-            navigate("/services")
-          }
-          sx={{
-
-            display: "flex",
-
-            alignItems: "center",
-
-            gap: .5,
-
-            background: "#1a1a1a",
-
-            px: 2,
-
-            py: 1,
-
-            borderRadius: 3,
-
-            minWidth: "fit-content",
-
-            cursor: "pointer"
-
-          }}
-        >
-
-          <Build
-            sx={{
-              fontSize: 18,
-              color: GOLD
-            }}
-          />
-
-          <Typography
-            sx={{
-              color: "#fff",
-              fontSize: 12
-            }}
-          >
-            Services
-          </Typography>
-
-        </Box>
-
-        {/* ADVERTS */}
-
-        <Box
-          onClick={() =>
-            navigate("/adverts")
-          }
-          sx={{
-
-            display: "flex",
-
-            alignItems: "center",
-
-            gap: .5,
-
-            background: "#1a1a1a",
-
-            px: 2,
-
-            py: 1,
-
-            borderRadius: 3,
-
-            minWidth: "fit-content",
-
-            cursor: "pointer"
-
-          }}
-        >
-
-          <Campaign
-            sx={{
-              fontSize: 18,
-              color: GOLD
-            }}
-          />
-
-          <Typography
-            sx={{
-              color: "#fff",
-              fontSize: 12
-            }}
-          >
-            Adverts
-          </Typography>
-
-        </Box>
-
-      </Box>
-
-      {/* =================================================
          SEARCH
       ================================================= */}
 
-      <Box sx={{ px: 1.5 }}>
+      <Box sx={{ px: 1.9, mt: 2 }}>
 
         <TextField
           fullWidth
@@ -1384,8 +1206,7 @@ export default function HousesPage() {
           >
             Reach thousands of students
             and residents by listing
-            your vacancies on
-            Golden Biashnet.
+            your vacancies on Biashnet LTD.
           </Typography>
 
           <Button

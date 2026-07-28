@@ -118,12 +118,9 @@ const handleSubmit = async () => {
     setLoading(true);
 
     // Upload images
-    const imageUrls = [];
-    for (let img of images) {
-      const url = await uploadToCloudinary(img);
-      imageUrls.push(url);
-    }
-
+   const imageUrls = await Promise.all(
+  images.map(img => uploadToCloudinary(img.file))
+);
     // Create keywords
     const keywords = createKeywords(`${title} ${location} ${propertyType}`);
     const plan = promotionPlans.find((p) => p.value === promotionPlan);

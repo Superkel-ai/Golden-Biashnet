@@ -145,12 +145,10 @@ export default function EventForm() {
 
       const imageUrls = [];
 
-      for (const img of images) {
-
-        const url = await uploadToCloudinary(img);
-        imageUrls.push(url);
-
-      }
+for (const img of images) {
+  const url = await uploadToCloudinary(img.file || img);
+  imageUrls.push(url);
+}
 
       const advertRef = await addDoc(collection(db, "adverts"), {
 
